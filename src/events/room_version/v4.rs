@@ -1,6 +1,5 @@
 use ring::digest::{digest, SHA256};
 use serde::{Deserialize, Serialize};
-use serde_canonical::ser::to_string as to_canonical_json;
 use serde_json::{Map, Value as JsonValue};
 
 use crate::{
@@ -68,7 +67,7 @@ impl UnhashedPdu {
     ///
     /// Does not add any signatures.
     pub fn finalize(self) -> PduV4 {
-        let json = to_canonical_json(&self).expect("event doesn't meet canonical json reqs");
+        let json = cjson::to_string(&self).expect("event doesn't meet canonical json reqs");
         let content_hash = base64::encode_config(
             digest(&SHA256, json.as_bytes()).as_ref(),
             base64::URL_SAFE_NO_PAD,
@@ -129,7 +128,7 @@ impl PduV4 {
         let mut redacted = self.clone().redact();
         redacted.signatures = None;
         // age_ts doesn't exist, and unsigned already got blasted in redact()
-        let json = to_canonical_json(&redacted).expect("event doesn't meet canonical json reqs");
+        let json = cjson::to_string(&redacted).expect("event doesn't meet canonical json reqs");
         let mut event_id = base64::encode_config(
             digest(&SHA256, json.as_bytes()).as_ref(),
             base64::URL_SAFE_NO_PAD,

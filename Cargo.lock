@@ -542,6 +542,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "cjson"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "91531b1d3fe15c6126decd9977dc823e1fde8e2501cf6ac780407f952a28f7ce"
+dependencies = [
+ "itoa",
+ "serde",
+ "serde_derive",
+ "serde_json",
+]
+
+[[package]]
 name = "const_fn"
 version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1149,6 +1161,7 @@ dependencies = [
  "base64 0.10.1",
  "bincode",
  "chrono",
+ "cjson",
  "crossbeam",
  "displaydoc",
  "enum_extract",
@@ -1161,7 +1174,6 @@ dependencies = [
  "ring",
  "rust-argon2",
  "serde",
- "serde_canonical",
  "serde_json",
  "sled",
  "tokio 0.2.25",
@@ -1793,18 +1805,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bd761ff957cb2a45fbb9ab3da6512de9de55872866160b23c25f1a841e99d29f"
 dependencies = [
  "serde_derive",
-]
-
-[[package]]
-name = "serde_canonical"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ccadc462b90454bfc35b289b5182d63c36a23d1c513f7cacac81e7f994183062"
-dependencies = [
- "itoa",
- "serde",
- "serde_derive",
- "serde_json",
 ]
 
 [[package]]
