@@ -5,7 +5,7 @@ use actix_web::{
 use serde::Deserialize;
 use serde_json::{json, Value as JsonValue};
 use std::{collections::HashMap, sync::Arc};
-use tracing::{field::Empty, instrument, Level, Span};
+use tracing::{field::Empty, instrument, Span};
 
 use crate::{
     client_api::auth::AccessToken,
@@ -64,7 +64,7 @@ enum Preset {
 }
 
 #[post("/createRoom")]
-#[instrument(skip_all, fields(username = Empty), err = Level::DEBUG)]
+#[instrument(skip_all, fields(username = Empty), err)]
 pub async fn create_room(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
@@ -273,7 +273,7 @@ pub struct InviteRequest {
 }
 
 #[post("/rooms/{room_id}/invite")]
-#[instrument(skip(state, token, req), fields(username = Empty), err = Level::DEBUG)]
+#[instrument(skip(state, token, req), fields(username = Empty), err)]
 pub async fn invite(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
@@ -310,7 +310,7 @@ pub async fn invite(
 }
 
 #[post("/join/{room_id_or_alias}")]
-#[instrument(skip(state, token), fields(username = Empty), err = Level::DEBUG)]
+#[instrument(skip(state, token), fields(username = Empty), err)]
 pub async fn join_by_id_or_alias(
     state: Data<Arc<ServerState>>,
     token: AccessToken,

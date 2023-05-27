@@ -5,7 +5,7 @@ use actix_web::{
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::sync::Arc;
-use tracing::{field::Empty, instrument, Level, Span};
+use tracing::{field::Empty, instrument, Span};
 
 use crate::{
     client_api::auth::AccessToken,
@@ -22,7 +22,7 @@ pub struct TypingRequest {
 }
 
 #[put("/rooms/{room_id}/typing/{user_id}")]
-#[instrument(skip(state, token, req), fields(username = Empty), err = Level::DEBUG)]
+#[instrument(skip(state, token, req), fields(username = Empty), err)]
 pub async fn typing(
     state: Data<Arc<ServerState>>,
     token: AccessToken,

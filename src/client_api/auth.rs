@@ -7,7 +7,7 @@ use actix_web::{
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::{convert::TryFrom, sync::Arc};
-use tracing::{field::Empty, instrument, span::Span, Level};
+use tracing::{field::Empty, instrument, span::Span};
 use uuid::Uuid;
 
 use crate::{
@@ -110,7 +110,7 @@ pub struct LoginResponse {
 }
 
 #[post("/login")]
-#[instrument(skip_all, err = Level::DEBUG)]
+#[instrument(skip_all, err)]
 pub async fn login(
     state: Data<Arc<ServerState>>,
     req: Json<LoginRequest>,
@@ -153,7 +153,7 @@ pub async fn login(
 }
 
 #[post("/logout")]
-#[instrument(skip(state), err = Level::DEBUG)]
+#[instrument(skip(state), err)]
 pub async fn logout(state: Data<Arc<ServerState>>, token: AccessToken) -> Result<Json<()>, Error> {
     let db = state.db_pool.get_handle().await?;
     db.delete_access_token(token.0).await?;
@@ -161,7 +161,7 @@ pub async fn logout(state: Data<Arc<ServerState>>, token: AccessToken) -> Result
 }
 
 #[post("/logout/all")]
-#[instrument(skip(state), err = Level::DEBUG)]
+#[instrument(skip(state), err)]
 pub async fn logout_all(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
@@ -184,7 +184,7 @@ pub struct RegisterRequest {
 }
 
 #[post("/register")]
-#[instrument(skip_all, fields(username = Empty), err = Level::DEBUG)]
+#[instrument(skip_all, fields(username = Empty), err)]
 pub async fn register(
     state: Data<Arc<ServerState>>,
     req: Json<RegisterRequest>,

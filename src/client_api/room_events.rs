@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
 use std::{collections::HashMap, sync::Arc};
 use tokio::time::{delay_for, Duration};
-use tracing::{field::Empty, instrument, Level, Span};
+use tracing::{field::Empty, instrument, Span};
 
 use crate::{
     client_api::auth::AccessToken,
@@ -141,7 +141,7 @@ struct Presence {
 }
 
 #[get("/sync")]
-#[instrument(skip_all, fields(username = Empty), err = Level::DEBUG)]
+#[instrument(skip_all, fields(username = Empty), err)]
 pub async fn sync(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
@@ -334,7 +334,7 @@ pub async fn sync(
 }
 
 #[get("/rooms/{room_id}/event/{event_id}")]
-#[instrument(skip(state, token), fields(username = Empty), err = Level::DEBUG)]
+#[instrument(skip(state, token), fields(username = Empty), err)]
 pub async fn get_event(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
@@ -375,7 +375,7 @@ pub async fn get_state_event_key(
     get_state_event_inner(state, token, path_args.into_inner()).await
 }
 
-#[instrument(skip(state, token), fields(username = Empty), err = Level::DEBUG)]
+#[instrument(skip(state, token), fields(username = Empty), err)]
 pub async fn get_state_event_inner(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
@@ -400,7 +400,7 @@ pub async fn get_state_event_inner(
 }
 
 #[get("/rooms/{room_id}/state")]
-#[instrument(skip(state, token), fields(username = Empty), err = Level::DEBUG)]
+#[instrument(skip(state, token), fields(username = Empty), err)]
 pub async fn get_state(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
@@ -436,7 +436,7 @@ pub struct MembersResponse {
 }
 
 #[get("/rooms/{room_id}/members")]
-#[instrument(skip(state, token, req), fields(username = Empty), err = Level::DEBUG)]
+#[instrument(skip(state, token, req), fields(username = Empty), err)]
 pub async fn get_members(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
@@ -481,7 +481,7 @@ pub struct SendEventResponse {
 }
 
 #[put("/rooms/{room_id}/state/{event_type}/{state_key}")]
-#[instrument(skip(state, token, event_content), fields(username = Empty), err = Level::DEBUG)]
+#[instrument(skip(state, token, event_content), fields(username = Empty), err)]
 pub async fn send_state_event(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
@@ -509,7 +509,7 @@ pub async fn send_state_event(
 }
 
 #[put("/rooms/{room_id}/send/{event_type}/{txn_id}")]
-#[instrument(skip(state, token, event_content), fields(username = Empty), err = Level::DEBUG)]
+#[instrument(skip(state, token, event_content), fields(username = Empty), err)]
 pub async fn send_event(
     state: Data<Arc<ServerState>>,
     token: AccessToken,

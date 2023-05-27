@@ -5,7 +5,7 @@ use actix_web::{
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
 use std::sync::Arc;
-use tracing::{field::Empty, instrument, Level, Span};
+use tracing::{field::Empty, instrument, Span};
 
 use crate::{
     client_api::auth::AccessToken,
@@ -16,7 +16,7 @@ use crate::{
 };
 
 #[get("/profile/{user_id}/avatar_url")]
-#[instrument(skip(state), err = Level::DEBUG)]
+#[instrument(skip(state), err)]
 pub async fn get_avatar_url(
     state: Data<Arc<ServerState>>,
     Path(user_id): Path<MatrixId>,
@@ -40,7 +40,7 @@ pub async fn get_avatar_url(
 }
 
 #[put("/profile/{user_id}/avatar_url")]
-#[instrument(skip(state, token, body), fields(username = Empty), err = Level::DEBUG)]
+#[instrument(skip(state, token, body), fields(username = Empty), err)]
 pub async fn set_avatar_url(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
@@ -70,7 +70,7 @@ pub async fn set_avatar_url(
 }
 
 #[get("/profile/{user_id}/displayname")]
-#[instrument(skip(state), err = Level::DEBUG)]
+#[instrument(skip(state), err)]
 pub async fn get_display_name(
     state: Data<Arc<ServerState>>,
     Path(user_id): Path<MatrixId>,
@@ -94,7 +94,7 @@ pub async fn get_display_name(
 }
 
 #[put("/profile/{user_id}/displayname")]
-#[instrument(skip(state, token, body), fields(username = Empty), err = Level::DEBUG)]
+#[instrument(skip(state, token, body), fields(username = Empty), err)]
 pub async fn set_display_name(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
@@ -124,7 +124,7 @@ pub async fn set_display_name(
 }
 
 #[get("/profile/{user_id}")]
-#[instrument(skip(state), err = Level::DEBUG)]
+#[instrument(skip(state), err)]
 pub async fn get_profile(
     state: Data<Arc<ServerState>>,
     Path(user_id): Path<MatrixId>,
@@ -173,7 +173,7 @@ struct User {
 
 //TODO: actually implement this
 #[post("/user_directory/search")]
-#[instrument(skip_all, err = Level::DEBUG)]
+#[instrument(skip_all, err)]
 pub async fn search_user_directory(
     state: Data<Arc<ServerState>>,
     req: Json<UserDirSearchRequest>,
@@ -220,7 +220,7 @@ pub enum Medium {
 }
 
 #[get("/account/3pid")]
-#[instrument(skip_all, err = Level::DEBUG)]
+#[instrument(skip_all, err)]
 pub async fn get_3pids(
     _state: Data<Arc<ServerState>>,
     _token: AccessToken,
