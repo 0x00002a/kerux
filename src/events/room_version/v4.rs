@@ -1,3 +1,4 @@
+use base64::{prelude::BASE64_URL_SAFE_NO_PAD, Engine};
 use ring::digest::{digest, SHA256};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value as JsonValue};
@@ -68,10 +69,7 @@ impl UnhashedPdu {
     /// Does not add any signatures.
     pub fn finalize(self) -> PduV4 {
         let json = cjson::to_string(&self).expect("event doesn't meet canonical json reqs");
-        let content_hash = base64::encode_config(
-            digest(&SHA256, json.as_bytes()).as_ref(),
-            base64::URL_SAFE_NO_PAD,
-        );
+        let content_hash = BASE64_URL_SAFE_NO_PAD.encode(digest(&SHA256, json.as_bytes()).as_ref());
         PduV4 {
             event_content: self.event_content,
             room_id: self.room_id,
@@ -129,10 +127,7 @@ impl PduV4 {
         redacted.signatures = None;
         // age_ts doesn't exist, and unsigned already got blasted in redact()
         let json = cjson::to_string(&redacted).expect("event doesn't meet canonical json reqs");
-        let mut event_id = base64::encode_config(
-            digest(&SHA256, json.as_bytes()).as_ref(),
-            base64::URL_SAFE_NO_PAD,
-        );
+        let mut event_id = BASE64_URL_SAFE_NO_PAD.encode(digest(&SHA256, json.as_bytes()).as_ref());
         event_id.insert(0, '$');
         event_id
     }

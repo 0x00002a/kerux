@@ -28,7 +28,6 @@ pub struct AccessToken(pub Uuid);
 impl FromRequest for AccessToken {
     type Error = Error;
     type Future = futures::future::Ready<Result<Self, Self::Error>>;
-    type Config = ();
     fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
         let res = (|| {
             if let Some(s) = req.headers().get("Authorization") {
@@ -142,7 +141,7 @@ pub async fn login(
     tracing::info!(username = username.as_str(), "User logged in");
 
     let user_id = MatrixId::new(&username, &state.config.domain).unwrap();
-    let access_token = format!("{}", access_token.to_hyphenated());
+    let access_token = format!("{}", access_token.hyphenated());
 
     Ok(Json(LoginResponse {
         user_id,
@@ -218,7 +217,7 @@ pub async fn register(
     let access_token = db
         .create_access_token(&user_id.localpart(), &device_id)
         .await?;
-    let access_token = format!("{}", access_token.to_hyphenated());
+    let access_token = format!("{}", access_token.hyphenated());
 
     Ok(Json(json!({
         "user_id": user_id,

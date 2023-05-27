@@ -355,8 +355,7 @@ mod tests {
     #[cfg(feature = "storage-mem")]
     #[test]
     fn mem_backend_user_accounts() {
-        let mut rt = tokio::runtime::Builder::new()
-            .basic_scheduler()
+        let mut rt = tokio::runtime::Builder::new_current_thread()
             .build()
             .unwrap();
         let db_pool = super::mem::MemStorageManager::new();
@@ -371,8 +370,7 @@ mod tests {
     fn sled_backend_user_accounts() {
         let path = "sled-test-user-accounts";
         let _ = std::fs::remove_dir_all(path);
-        let mut rt = tokio::runtime::Builder::new()
-            .basic_scheduler()
+        let mut rt = tokio::runtime::Builder::new_current_thread()
             .build()
             .unwrap();
         let db_pool = super::sled::SledStorage::new(path).unwrap();
@@ -480,8 +478,7 @@ mod tests {
     #[cfg(feature = "storage-mem")]
     #[test]
     fn mem_backend_transactions() {
-        let mut rt = tokio::runtime::Builder::new()
-            .basic_scheduler()
+        let mut rt = tokio::runtime::Builder::new_current_thread()
             .build()
             .unwrap();
         let db_pool = super::mem::MemStorageManager::new();
@@ -496,8 +493,7 @@ mod tests {
     fn sled_backend_transactions() {
         let path = "sled-test-transactions";
         let _ = std::fs::remove_dir_all(path);
-        let mut rt = tokio::runtime::Builder::new()
-            .basic_scheduler()
+        let mut rt = tokio::runtime::Builder::new_current_thread()
             .build()
             .unwrap();
         let db_pool = super::sled::SledStorage::new(path).unwrap();

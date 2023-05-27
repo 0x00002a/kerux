@@ -19,7 +19,7 @@ use crate::{
 #[instrument(skip(state), err)]
 pub async fn get_avatar_url(
     state: Data<Arc<ServerState>>,
-    Path(user_id): Path<MatrixId>,
+    user_id: Path<MatrixId>,
 ) -> Result<Json<JsonValue>, Error> {
     if user_id.domain() != state.config.domain {
         return Err(ErrorKind::Unimplemented.into());
@@ -44,7 +44,7 @@ pub async fn get_avatar_url(
 pub async fn set_avatar_url(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
-    Path(req_id): Path<MatrixId>,
+    req_id: Path<MatrixId>,
     body: Json<JsonValue>,
 ) -> Result<Json<()>, Error> {
     let db = state.db_pool.get_handle().await?;
@@ -73,7 +73,7 @@ pub async fn set_avatar_url(
 #[instrument(skip(state), err)]
 pub async fn get_display_name(
     state: Data<Arc<ServerState>>,
-    Path(user_id): Path<MatrixId>,
+    user_id: Path<MatrixId>,
 ) -> Result<Json<JsonValue>, Error> {
     if user_id.domain() != state.config.domain {
         return Err(ErrorKind::Unknown("User does not live on this homeserver".to_string()).into());
@@ -98,7 +98,7 @@ pub async fn get_display_name(
 pub async fn set_display_name(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
-    Path(req_id): Path<MatrixId>,
+    req_id: Path<MatrixId>,
     body: Json<JsonValue>,
 ) -> Result<Json<()>, Error> {
     let db = state.db_pool.get_handle().await?;
@@ -127,7 +127,7 @@ pub async fn set_display_name(
 #[instrument(skip(state), err)]
 pub async fn get_profile(
     state: Data<Arc<ServerState>>,
-    Path(user_id): Path<MatrixId>,
+    user_id: Path<MatrixId>,
 ) -> Result<Json<JsonValue>, Error> {
     if user_id.domain() != state.config.domain {
         return Err(ErrorKind::Unknown("User does not live on this homeserver".to_string()).into());

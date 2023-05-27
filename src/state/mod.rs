@@ -730,8 +730,7 @@ mod tests {
     #[test]
     fn linear() {
         crate::init_tracing();
-        let mut rt = tokio::runtime::Builder::new()
-            .basic_scheduler()
+        let mut rt = tokio::runtime::Builder::new_current_thread()
             .build()
             .unwrap();
         rt.block_on(linear_inner()).unwrap();

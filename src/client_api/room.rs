@@ -277,7 +277,7 @@ pub struct InviteRequest {
 pub async fn invite(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
-    Path(room_id): Path<String>,
+    room_id: Path<String>,
     req: Json<InviteRequest>,
 ) -> Result<Json<JsonValue>, Error> {
     let db = state.db_pool.get_handle().await?;
@@ -314,8 +314,9 @@ pub async fn invite(
 pub async fn join_by_id_or_alias(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
-    Path(room_id_or_alias): Path<String>,
+    room_id_or_alias: Path<String>,
 ) -> Result<Json<JsonValue>, Error> {
+    let room_id_or_alias = room_id_or_alias.into_inner();
     //TODO: implement server_name and third_party_signed args, and room aliases
     let db = state.db_pool.get_handle().await?;
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;

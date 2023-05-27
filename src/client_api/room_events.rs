@@ -6,7 +6,7 @@ use futures::FutureExt;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
 use std::{collections::HashMap, sync::Arc};
-use tokio::time::{delay_for, Duration};
+use tokio::time::{sleep, Duration};
 use tracing::{field::Empty, instrument, Span};
 
 use crate::{
@@ -292,7 +292,7 @@ pub async fn sync(
         return Ok(Json(res));
     }
 
-    let timeout = delay_for(Duration::from_millis(req.timeout as _));
+    let timeout = sleep(Duration::from_millis(req.timeout as _));
     tokio::select! {
         _ = timeout => {
             db.set_batch(&next_batch_id, batch).await?;
@@ -338,8 +338,9 @@ pub async fn sync(
 pub async fn get_event(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
-    Path((room_id, event_id)): Path<(String, String)>,
+    path: Path<(String, String)>,
 ) -> Result<Json<Event>, Error> {
+    let (room_id, event_id) = path.into_inner();
     let db = state.db_pool.get_handle().await?;
 
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
@@ -404,7 +405,7 @@ pub async fn get_state_event_inner(
 pub async fn get_state(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
-    Path(room_id): Path<String>,
+    room_id: Path<String>,
 ) -> Result<Json<Vec<Event>>, Error> {
     let db = state.db_pool.get_handle().await?;
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
@@ -440,7 +441,7 @@ pub struct MembersResponse {
 pub async fn get_members(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
-    Path(room_id): Path<String>,
+    room_id: Path<String>,
     req: Query<MembersRequest>,
 ) -> Result<Json<MembersResponse>, Error> {
     let db = state.db_pool.get_handle().await?;
@@ -485,9 +486,10 @@ pub struct SendEventResponse {
 pub async fn send_state_event(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
-    Path((room_id, event_type, state_key)): Path<(String, String, String)>,
+    path: Path<(String, String, String)>,
     event_content: Json<JsonValue>,
 ) -> Result<Json<SendEventResponse>, Error> {
+    let (room_id, event_type, state_key) = path.into_inner();
     let db = state.db_pool.get_handle().await?;
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
     Span::current().record("username", &username.as_str());
@@ -513,9 +515,10 @@ pub async fn send_state_event(
 pub async fn send_event(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
-    Path((room_id, event_type, txn_id)): Path<(String, String, String)>,
+    path: Path<(String, String, String)>,
     event_content: Json<JsonValue>,
 ) -> Result<Json<SendEventResponse>, Error> {
+    let (room_id, event_type, txn_id) = path.into_inner();
     let db = state.db_pool.get_handle().await?;
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
     Span::current().record("username", &username.as_str());

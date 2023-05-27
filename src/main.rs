@@ -2,13 +2,14 @@
 extern crate tokio_postgres as pg;
 
 use actix_web::{
-    web::{self, JsonConfig},
+    web::{self, Data, JsonConfig},
     App,
 };
 use error::Error;
 use serde::Deserialize;
 use state::StateResolver;
 use std::sync::Arc;
+use tokio::fs::read_to_string;
 use tracing_subscriber::EnvFilter;
 
 mod client_api;
@@ -53,7 +54,7 @@ async fn main() -> std::io::Result<()> {
 async fn run() -> Result<(), Box<dyn std::error::Error>> {
     init_tracing();
 
-    let config: Config = toml::from_slice(&std::fs::read("config.toml")?)?;
+    let config: Config = toml::from_str(&read_to_string("config.toml").await?)?;
     let db_pool = match &*config.storage {
         "mem" => {
             let storage =
@@ -74,8 +75,10 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let server_state2 = Arc::clone(&server_state);
     actix_web::HttpServer::new(move || {
         App::new()
-            .data(Arc::clone(&server_state))
-            .data(JsonConfig::default().error_handler(|e, _req| Error::from(e).into()))
+            .app_data(Data::new(Arc::clone(&server_state)))
+            .app_data(Data::new(
+                JsonConfig::default().error_handler(|e, _req| Error::from(e).into()),
+            ))
             .service(web::scope("/_matrix/client").configure(client_api::configure_endpoints))
             .service(util::print_the_world)
     })

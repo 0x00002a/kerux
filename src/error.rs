@@ -1,8 +1,7 @@
 use std::{fmt::Display, str::Utf8Error, string::FromUtf8Error};
 
 use actix_web::{
-    dev::HttpResponseBuilder, error::JsonPayloadError, http::StatusCode, HttpResponse,
-    ResponseError,
+    error::JsonPayloadError, http::StatusCode, HttpResponse, HttpResponseBuilder, ResponseError,
 };
 use displaydoc::Display;
 use serde_json::{json, Error as JsonError};
@@ -41,8 +40,7 @@ pub enum ErrorKind {
     UnknownToken,
     /// No access token was specified for the request.
     MissingToken,
-    /// Request contained valid JSON, but it was malformed in some way, e.g. missing required keys,
-    /// invalid values for keys: {0}
+    /// Request contained valid JSON, but it was malformed in some way: {0}
     BadJson(String),
     /// Request did not contain valid JSON: {0}
     NotJson(String),

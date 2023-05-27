@@ -26,9 +26,10 @@ pub struct TypingRequest {
 pub async fn typing(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
-    Path((room_id, user_id)): Path<(String, MatrixId)>,
+    path: Path<(String, MatrixId)>,
     req: Json<TypingRequest>,
 ) -> Result<Json<Value>, Error> {
+    let (room_id, user_id) = path.into_inner();
     let db = state.db_pool.get_handle().await?;
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::Forbidden)?;
     Span::current().record("username", &username.as_str());
