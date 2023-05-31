@@ -10,9 +10,15 @@ use tracing::{field::Empty, instrument, Span};
 use crate::{
     client_api::auth::AccessToken,
     error::{Error, ErrorKind},
-    events::{room, EventContent},
+    events::{
+        pdu::StoredPdu,
+        room,
+        room_version::{v4::UnhashedPdu, VersionedPdu},
+        EventContent,
+    },
     storage::UserProfile,
     util::{storage::NewEvent, MatrixId, StorageExt},
+    validate::auth::AuthStatus,
     ServerState,
 };
 
@@ -83,25 +89,29 @@ pub async fn create_room(
 
     let room_id = format!("!{:016X}:{}", rand::random::<i64>(), state.config.domain);
 
-    db.add_event(
-        &room_id,
-        NewEvent {
-            event_content: EventContent::Create(room::Create {
-                creator: user_id.clone(),
-                room_version: Some(room_version),
-                predecessor: None,
-                extra: match req.creation_content {
-                    Some(v) => v,
-                    None => HashMap::new(),
-                },
-            }),
-            sender: user_id.clone(),
-            state_key: Some(String::new()),
-            redacts: None,
-            unsigned: None,
-        },
-        &state.state_resolver,
-    )
+    let create_event = UnhashedPdu {
+        event_content: EventContent::Create(room::Create {
+            creator: user_id.clone(),
+            room_version: Some(room_version),
+            predecessor: None,
+            extra: req.creation_content.unwrap_or_default(),
+        }),
+        room_id: room_id.clone(),
+        sender: user_id.clone(),
+        state_key: Some(String::new()),
+        unsigned: None,
+        redacts: None,
+        origin: state.config.domain.clone(),
+        origin_server_ts: chrono::Utc::now().timestamp_millis(),
+        prev_events: Vec::new(),
+        depth: 0,
+        auth_events: Vec::new(),
+    }
+    .finalize();
+    db.add_pdus(&[StoredPdu {
+        inner: VersionedPdu::V4(create_event),
+        auth_status: AuthStatus::Pass,
+    }])
     .await?;
 
     let creator_join = {
