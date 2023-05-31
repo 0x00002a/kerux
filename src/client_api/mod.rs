@@ -12,7 +12,7 @@ mod user;
 
 pub fn configure_endpoints(cfg: &mut web::ServiceConfig) {
     cfg.service(versions);
-    let r0 = web::scope("/r0")
+    let v3 = web::scope("/v3")
         .service(auth::get_supported_login_types)
         .service(auth::login)
         .service(auth::logout)
@@ -50,15 +50,14 @@ pub fn configure_endpoints(cfg: &mut web::ServiceConfig) {
                 ]),
         );
 
-    cfg.service(r0);
+    cfg.service(v3);
 }
 
 #[get("/versions")]
 async fn versions() -> Json<serde_json::Value> {
     Json(json!({
         "versions": [
-            "r0.5.0",
-            "r0.6.0"
+            "v1.7",
         ]
     }))
 }
