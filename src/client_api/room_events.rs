@@ -48,8 +48,8 @@ fn default_set_presence() -> SetPresence {
 #[derive(Debug, Serialize)]
 pub struct SyncResponse {
     next_batch: String,
-    rooms: Option<Rooms>,
-    presence: Option<Presence>,
+    rooms: Rooms,
+    presence: Presence,
     account_data: AccountData,
 }
 
@@ -159,8 +159,8 @@ pub async fn sync(
     let next_batch_id = format!("{:x}", rand::random::<u64>());
     let mut res = SyncResponse {
         next_batch: next_batch_id.clone(),
-        rooms: None,
-        presence: None,
+        rooms: Rooms::default(),
+        presence: Presence { events: Vec::new() },
         account_data: AccountData { events: Vec::new() },
     };
 
@@ -224,7 +224,7 @@ pub async fn sync(
                         .collect(),
                 };
                 let account_data = AccountData { events: Vec::new() };
-                res.rooms.get_or_insert_with(Default::default).join.insert(
+                res.rooms.join.insert(
                     String::from(room_id),
                     JoinedRoom {
                         summary,
@@ -246,15 +246,12 @@ pub async fn sync(
                         sender: e.sender,
                     })
                     .collect();
-                res.rooms
-                    .get_or_insert_with(Default::default)
-                    .invite
-                    .insert(
-                        room_id.clone(),
-                        InvitedRoom {
-                            invite_state: InviteState { events },
-                        },
-                    );
+                res.rooms.invite.insert(
+                    room_id.clone(),
+                    InvitedRoom {
+                        invite_state: InviteState { events },
+                    },
+                );
                 batch.invites.insert(room_id.clone());
             }
             _ => {}
@@ -307,7 +304,7 @@ pub async fn sync(
                 invited_member_count: invited,
             };
             batch.rooms.insert(room_id.clone(), progress + 1);
-            res.rooms.get_or_insert_with(Default::default).join.insert(
+            res.rooms.join.insert(
                 room_id.clone(),
                 JoinedRoom {
                     summary,
