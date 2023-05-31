@@ -160,22 +160,9 @@ impl<'a> StorageExt for dyn Storage + 'a {
     }
 
     async fn create_test_users(&self) -> Result<(), Error> {
-        // all passwords are "password"
-        self.create_user(
-            "alice",
-            "$argon2i$v=19$m=4096,t=3,p=1$c2FsdHNhbHQ$llvUdqp69y2RB629dCuG42kR5y+Occ/ziKV5kn3rSOM",
-        )
-        .await?;
-        self.create_user(
-            "bob",
-            "$argon2i$v=19$m=4096,t=3,p=1$c2FsdHNhbHQ$llvUdqp69y2RB629dCuG42kR5y+Occ/ziKV5kn3rSOM",
-        )
-        .await?;
-        self.create_user(
-            "carol",
-            "$argon2i$v=19$m=4096,t=3,p=1$c2FsdHNhbHQ$llvUdqp69y2RB629dCuG42kR5y+Occ/ziKV5kn3rSOM",
-        )
-        .await?;
+        self.create_user("alice", "password").await?;
+        self.create_user("bob", "password").await?;
+        self.create_user("carol", "password").await?;
         Ok(())
     }
 }
