@@ -284,8 +284,10 @@ pub async fn sync(
         );
     }
     if queries.is_empty() {
-        // user is not in any rooms. no point waiting for stuff to happen in them
+        // user is not in any rooms. when we have a better event system we can wait for
+        // invitations etc, but for now just sleep so the client doesn't sync over and over
         db.set_batch(&next_batch_id, batch).await?;
+        sleep(Duration::from_millis(req.timeout as _)).await;
         return Ok(Json(res));
     }
 
