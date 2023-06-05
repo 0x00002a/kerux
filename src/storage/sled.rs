@@ -273,6 +273,15 @@ fn serialize<T: Serialize>(value: &T) -> Result<Vec<u8>, Error> {
 
 #[async_trait]
 impl Storage for SledStorageHandle {
+    async fn overwrite_profile(&self, username: &str, profile: UserProfile) -> Result<(), Error> {
+        let mut user: User = self
+            .users
+            .get_value(username)?
+            .ok_or(Error::from(ErrorKind::UserNotFound))?;
+        user.profile = profile;
+        self.users.overwrite_value(username, user)?;
+        Ok(())
+    }
     async fn create_user(&self, username: &str, password: &str) -> Result<(), Error> {
         let salt: [u8; 16] = rand::random();
         let password_hash = argon2::hash_encoded(password.as_bytes(), &salt, &Default::default())?;

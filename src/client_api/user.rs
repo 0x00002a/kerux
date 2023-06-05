@@ -10,6 +10,7 @@ use tracing::{field::Empty, instrument, Span};
 use crate::{
     client_api::auth::AccessToken,
     error::{Error, ErrorKind},
+    events::presence::Status,
     storage::UserProfile,
     util::MatrixId,
     ServerState,
@@ -142,6 +143,7 @@ pub async fn get_profile(
     let UserProfile {
         avatar_url,
         displayname,
+        ..
     } = db.get_profile(&user_id.localpart()).await?.unwrap();
     let mut response = serde_json::Map::new();
     if let Some(v) = avatar_url {
@@ -248,4 +250,30 @@ pub async fn filter_events() -> Result<Json<FilterEventsResponse>, Error> {
     Ok(Json(FilterEventsResponse {
         filter_id: "todo".to_owned(),
     }))
+}
+
+#[get("/user/{user_id}/filter/{filter_id}")]
+pub async fn filter_event() -> Result<Json<serde_json::Value>, Error> {
+    // TODO: This should actually be implemented
+    Ok(Json(json!({})))
+}
+#[derive(Deserialize, Debug)]
+#[repr(transparent)]
+#[serde(transparent)]
+pub struct StatusRequest(Status);
+
+#[put("/presence/{user_id}/status")]
+pub async fn status(
+    state: Data<Arc<ServerState>>,
+    user_id: Path<MatrixId>,
+    req: Json<StatusRequest>,
+) -> Result<Json<serde_json::Value>, Error> {
+    let user_id = user_id.into_inner();
+    state
+        .db_pool
+        .get_handle()
+        .await?
+        .set_status(&user_id.to_string(), req.0 .0)
+        .await?;
+    Ok(Json(json!({})))
 }

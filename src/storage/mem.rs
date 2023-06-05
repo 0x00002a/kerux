@@ -86,6 +86,16 @@ impl StorageManager for MemStorageManager {
 
 #[async_trait]
 impl Storage for MemStorageHandle {
+    async fn overwrite_profile(&self, username: &str, profile: UserProfile) -> Result<(), Error> {
+        let mut db = self.inner.write().await;
+        let pos = db
+            .users
+            .iter()
+            .position(|u| &u.username == username)
+            .ok_or(Error::from(ErrorKind::UserNotFound))?;
+        db.users[pos].profile = profile;
+        Ok(())
+    }
     async fn create_user(&self, username: &str, password: &str) -> Result<(), Error> {
         let salt: [u8; 16] = rand::random();
         let password_hash = argon2::hash_encoded(password.as_bytes(), &salt, &Default::default())?;
@@ -99,6 +109,7 @@ impl Storage for MemStorageHandle {
             profile: UserProfile {
                 avatar_url: None,
                 displayname: None,
+                status: None,
             },
             account_data: HashMap::new(),
         });

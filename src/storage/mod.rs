@@ -6,8 +6,11 @@ use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
 use crate::{
-    error::Error,
-    events::{pdu::StoredPdu, room::Membership, room_version::VersionedPdu, Event, EventContent},
+    error::{Error, ErrorKind},
+    events::{
+        pdu::StoredPdu, presence::Status, room::Membership, room_version::VersionedPdu, Event,
+        EventContent,
+    },
     util::MatrixId,
 };
 
@@ -22,6 +25,7 @@ pub mod sled;
 pub struct UserProfile {
     pub avatar_url: Option<String>,
     pub displayname: Option<String>,
+    pub status: Option<Status>,
 }
 
 #[derive(Clone)]
@@ -149,6 +153,18 @@ pub trait Storage: Send + Sync {
     async fn create_user(&self, username: &str, password: &str) -> Result<(), Error>;
 
     async fn verify_password(&self, username: &str, password: &str) -> Result<bool, Error>;
+
+    async fn overwrite_profile(&self, username: &str, profile: UserProfile) -> Result<(), Error>;
+
+    async fn set_status(&self, username: &str, status: Status) -> Result<(), Error> {
+        let mut profile = self
+            .get_profile(username)
+            .await?
+            .ok_or(Error::from(ErrorKind::UserNotFound))?;
+        profile.status.replace(status);
+        self.overwrite_profile(username, profile).await?;
+        Ok(())
+    }
 
     async fn create_access_token(&self, username: &str, device_id: &str) -> Result<Uuid, Error>;
 

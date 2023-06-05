@@ -5,6 +5,7 @@ use crate::util::MatrixId;
 
 pub mod ephemeral;
 pub mod pdu;
+pub mod presence;
 pub mod room;
 pub mod room_version;
 

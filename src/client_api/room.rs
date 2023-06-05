@@ -118,6 +118,7 @@ pub async fn create_room(
         let UserProfile {
             avatar_url,
             displayname,
+            ..
         } = db.get_profile(&username).await?.unwrap();
         room::Member {
             avatar_url,
