@@ -32,12 +32,14 @@ pub struct State {
 }
 
 impl State {
-    pub fn key<'k>((event_type, state_key): (&'k str, &'k str)) -> (Cow<'k, str>, Cow<'k, str>) {
-        (Cow::from(event_type), Cow::from(state_key))
+    pub fn key<'k>(
+        (event_type, state_key): (&'k str, Cow<'k, str>),
+    ) -> (Cow<'k, str>, Cow<'k, str>) {
+        (Cow::from(event_type), state_key)
     }
 
     pub fn get<'s, 'k: 's>(&'s self, key_strs: (&'k str, &'k str)) -> Option<&'s str> {
-        let key = Self::key(key_strs);
+        let key = Self::key((key_strs.0, Cow::Borrowed(key_strs.1)));
         self.map
             .get::<(Cow<'k, str>, Cow<'k, str>)>(&key)
             .map(String::as_str)
@@ -454,12 +456,15 @@ impl StateResolver {
             // for auth checking, prefer events from state, otherwise fall back to auth_events
             let mut frankenstate = state.clone();
             for auth_key in auth_types_for_event(event) {
-                if !frankenstate.map.contains_key(&State::key(auth_key)) {
+                if !frankenstate
+                    .map
+                    .contains_key(&State::key((auth_key.0, auth_key.1.clone())))
+                {
                     let fallback_event = auth_events
                         .iter()
                         .find(|pdu| {
                             pdu.event_content().get_type() == auth_key.0
-                                && pdu.state_key() == Some(auth_key.1)
+                                && pdu.state_key() == Some(auth_key.1.as_ref())
                         })
                         .expect("auth event wasn't present in db");
                     frankenstate.insert_event(&fallback_event.inner());
@@ -493,22 +498,22 @@ fn is_power_event(pdu: &VersionedPdu) -> bool {
     }
 }
 
-fn auth_types_for_event(pdu: &VersionedPdu) -> HashSet<(&str, &str)> {
+fn auth_types_for_event<'a>(pdu: &'a VersionedPdu) -> HashSet<(&'a str, Cow<'a, str>)> {
     let mut ret = HashSet::new();
     if pdu.event_content().get_type() == "m.room.create" {
         return ret;
     }
 
-    ret.insert(("m.room.create", ""));
-    ret.insert(("m.room.member", &pdu.sender().to_string()));
-    ret.insert(("m.room.power_levels", ""));
+    ret.insert(("m.room.create", "".into()));
+    ret.insert(("m.room.member", pdu.sender().to_string().into()));
+    ret.insert(("m.room.power_levels", "".into()));
 
     if let EventContent::Member(ref member) = pdu.event_content() {
-        ret.insert(("m.room.member", pdu.state_key().as_ref().unwrap()));
+        ret.insert(("m.room.member", pdu.state_key().unwrap().into()));
 
         let membership = &member.membership;
         if *membership == Membership::Join || *membership == Membership::Invite {
-            ret.insert(("m.room.join_rules", ""));
+            ret.insert(("m.room.join_rules", "".into()));
         }
 
         // TODO: third party invites. see synapse event_auth.py

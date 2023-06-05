@@ -1,7 +1,9 @@
 use actix_web::{
     dev::Payload,
-    get, post,
-    web::{Data, Json},
+    get,
+    http::StatusCode,
+    post,
+    web::{self, Data, Json},
     FromRequest, HttpRequest,
 };
 use serde::{Deserialize, Serialize};
@@ -12,11 +14,11 @@ use uuid::Uuid;
 
 use crate::{
     error::{Error, ErrorKind},
-    util::MatrixId,
+    util::{JsonWithCode, MatrixId},
     ServerState,
 };
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 enum LoginType {
     #[serde(rename = "m.login.password")]
     Password,
@@ -180,21 +182,72 @@ pub struct RegisterRequest {
     #[serde(default)]
     inhibit_login: bool,
 }
+#[derive(Debug, Serialize)]
+struct RegisterSupportedResponse {
+    flows: Vec<LoginType>,
+    params: serde_json::Value,
+    session: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct CheckUsernameAvailableResponse {
+    available: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CheckUsernameAvailableParams {
+    username: String,
+}
+
+#[get("/register/available")]
+pub async fn check_username_available(
+    state: Data<Arc<ServerState>>,
+    query: web::Query<CheckUsernameAvailableParams>,
+) -> Result<Json<CheckUsernameAvailableResponse>, Error> {
+    let username = query.0.username;
+    let db = state.db_pool.get_handle().await?;
+    let exists = db.get_user_account_data(&username).await.is_ok();
+    Ok(Json(CheckUsernameAvailableResponse { available: !exists }))
+}
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum UserType {
+    Guest,
+    User,
+}
+impl Default for UserType {
+    fn default() -> Self {
+        Self::User
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RegisterParams {
+    #[serde(default)]
+    kind: UserType,
+}
 
 #[post("/register")]
 #[instrument(skip_all, fields(username = Empty), err)]
 pub async fn register(
     state: Data<Arc<ServerState>>,
     req: Json<RegisterRequest>,
-    http_req: HttpRequest,
-) -> Result<Json<serde_json::Value>, Error> {
+    params: web::Query<RegisterParams>,
+) -> Result<JsonWithCode<serde_json::Value>, Error> {
     let req = req.into_inner();
-    let query_string = http_req.query_string();
-    match query_string.split('&').find(|s| s.starts_with("kind=")) {
-        Some("kind=user") => {}
-        Some("kind=guest") => return Err(ErrorKind::Unimplemented.into()),
-        Some(x) => return Err(ErrorKind::InvalidParam(x.to_string()).into()),
-        None => return Err(ErrorKind::MissingParam("kind".to_string()).into()),
+    if req.password.is_none() && req.auth.is_none() {
+        return Ok(JsonWithCode::new(
+            serde_json::to_value(RegisterSupportedResponse {
+                flows: vec![LoginType::Password],
+                params: json!({}),
+                session: "".to_string(),
+            })
+            .unwrap(),
+            StatusCode::UNAUTHORIZED,
+        ));
+    }
+    if let UserType::Guest = params.0.kind {
+        return Err(ErrorKind::Unimplemented.into());
     }
 
     Span::current().record("username", &req.username.as_deref());
@@ -202,14 +255,19 @@ pub async fn register(
     let user_id = req
         .username
         .map(|u| MatrixId::new(&u, state.config.domain.clone()))
-        .unwrap_or_else(|| MatrixId::new_with_random_local(state.config.domain))
+        .unwrap_or_else(|| MatrixId::new_with_random_local(state.config.domain.clone()))
         .map_err(|e| ErrorKind::BadJson(format!("{}", e)))?;
 
     let db = state.db_pool.get_handle().await?;
-    db.create_user(&user_id.localpart(), &req.password).await?;
+    db.create_user(
+        &user_id.localpart(),
+        &req.password
+            .ok_or_else(|| Error::from(ErrorKind::BadJson("missing password".to_owned())))?,
+    )
+    .await?;
     if req.inhibit_login {
-        return Ok(Json(json!({
-            "user_id": req.username
+        return Ok(JsonWithCode::ok(json!({
+            "user_id": user_id.localpart()
         })));
     }
 
@@ -221,7 +279,7 @@ pub async fn register(
         .await?;
     let access_token = format!("{}", access_token.hyphenated());
 
-    Ok(Json(json!({
+    Ok(JsonWithCode::ok(json!({
         "user_id": user_id,
         "access_token": access_token,
         "device_id": device_id
