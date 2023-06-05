@@ -1,12 +1,13 @@
 use actix_web::{
     get,
     web::{self, Json},
-    Scope,
+    HttpResponse, Scope,
 };
 use serde_json::json;
 
 mod auth;
 mod ephemeral;
+mod pushrules;
 mod room;
 mod room_events;
 mod user;
