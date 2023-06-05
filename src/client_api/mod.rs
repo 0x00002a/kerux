@@ -20,6 +20,7 @@ pub fn configure_endpoints(cfg: &mut web::ServiceConfig) {
             .service(auth::logout)
             .service(auth::logout_all)
             .service(auth::register)
+            .service(auth::check_username_available)
             .service(user::get_avatar_url)
             .service(user::set_avatar_url)
             .service(user::get_display_name)
