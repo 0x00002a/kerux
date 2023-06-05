@@ -21,7 +21,7 @@ pub async fn get_avatar_url(
     state: Data<Arc<ServerState>>,
     user_id: Path<MatrixId>,
 ) -> Result<Json<JsonValue>, Error> {
-    if user_id.domain() != state.config.domain {
+    if user_id.domain() != &state.config.domain {
         return Err(ErrorKind::Unimplemented.into());
     }
 
@@ -54,7 +54,7 @@ pub async fn set_avatar_url(
     if req_id.localpart() != username {
         return Err(ErrorKind::Forbidden.into());
     }
-    if req_id.domain() != state.config.domain {
+    if req_id.domain() != &state.config.domain {
         return Err(ErrorKind::Unknown("User does not live on this homeserver".to_string()).into());
     }
 
@@ -75,7 +75,7 @@ pub async fn get_display_name(
     state: Data<Arc<ServerState>>,
     user_id: Path<MatrixId>,
 ) -> Result<Json<JsonValue>, Error> {
-    if user_id.domain() != state.config.domain {
+    if user_id.domain() != &state.config.domain {
         return Err(ErrorKind::Unknown("User does not live on this homeserver".to_string()).into());
     }
 
@@ -108,7 +108,7 @@ pub async fn set_display_name(
     if req_id.localpart() != username {
         return Err(ErrorKind::Forbidden.into());
     }
-    if req_id.domain() != state.config.domain {
+    if req_id.domain() != &state.config.domain {
         return Err(ErrorKind::Unknown("User does not live on this homeserver".to_string()).into());
     }
 
@@ -129,7 +129,7 @@ pub async fn get_profile(
     state: Data<Arc<ServerState>>,
     user_id: Path<MatrixId>,
 ) -> Result<Json<JsonValue>, Error> {
-    if user_id.domain() != state.config.domain {
+    if user_id.domain() != &state.config.domain {
         return Err(ErrorKind::Unknown("User does not live on this homeserver".to_string()).into());
     }
 
@@ -180,7 +180,7 @@ pub async fn search_user_directory(
 ) -> Result<Json<UserDirSearchResponse>, Error> {
     let req = req.into_inner();
     let db = state.db_pool.get_handle().await?;
-    let searched_user = MatrixId::new(&req.search_term, &state.config.domain)
+    let searched_user = MatrixId::new(&req.search_term, state.config.domain.clone())
         .map_err(|e| ErrorKind::Unknown(e.to_string()))?;
     let user_profile = db.get_profile(searched_user.localpart()).await?;
     match user_profile {

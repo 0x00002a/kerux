@@ -488,7 +488,7 @@ fn is_power_event(pdu: &VersionedPdu) -> bool {
         | EventContent::Member(Member {
             membership: Membership::Ban,
             ..
-        }) if pdu.state_key().as_deref() != Some(pdu.sender().as_str()) => true,
+        }) if pdu.state_key() != Some(&pdu.sender().to_string()) => true,
         _ => false,
     }
 }
@@ -500,7 +500,7 @@ fn auth_types_for_event(pdu: &VersionedPdu) -> HashSet<(&str, &str)> {
     }
 
     ret.insert(("m.room.create", ""));
-    ret.insert(("m.room.member", &pdu.sender().as_str()));
+    ret.insert(("m.room.member", &pdu.sender().to_string()));
     ret.insert(("m.room.power_levels", ""));
 
     if let EventContent::Member(ref member) = pdu.event_content() {
@@ -675,7 +675,7 @@ mod tests {
         let db = storage_manager.get_handle().await?;
         let resolver = StateResolver::new(storage_manager.get_handle().await?);
 
-        let alice = MatrixId::new("alice", "example.org").unwrap();
+        let alice = MatrixId::new("alice", "example.org".parse().unwrap()).unwrap();
         let room_id = "!linear:example.org";
         let mut room = TestRoom::create(&*db, room_id, &alice).await?;
         let _alice_join = room
@@ -688,7 +688,7 @@ mod tests {
                     membership: Membership::Join,
                     is_direct: Some(false),
                 },
-                Some(alice.as_str()),
+                Some(&alice.to_string()),
                 &resolver,
             )
             .await?;

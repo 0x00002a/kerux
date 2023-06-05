@@ -11,7 +11,7 @@ use crate::{
     },
     state::State,
     storage::Storage,
-    util::MatrixId,
+    util::{domain::Domain, MatrixId},
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
@@ -41,8 +41,12 @@ pub async fn auth_check_v1(
         if !pdu.prev_events().is_empty() {
             return Ok(Fail);
         }
-        let room_id_domain = pdu.room_id().split_once(':').expect("invalid room id").1;
-        if pdu.sender().domain() != room_id_domain {
+        let room_id_domain: Domain = pdu
+            .room_id()
+            .split_once(':')
+            .and_then(|(_, d)| d.parse().ok())
+            .expect("invalid room id");
+        if pdu.sender().domain() != &room_id_domain {
             return Ok(Fail);
         }
         // cant check room version if v4 is embedded in the type system lmao
@@ -88,7 +92,7 @@ pub async fn auth_check_v1(
             Membership::Join => {
                 // do step 5-2-2 before 5-2-1 because it makes more sense
                 // users can't set other users' membership to join
-                if pdu.state_key().as_deref() != Some(pdu.sender().as_str()) {
+                if pdu.state_key().as_deref() != Some(&pdu.sender().to_string()) {
                     return Ok(Fail);
                 }
 
@@ -112,7 +116,7 @@ pub async fn auth_check_v1(
 
                 // get the user's membership in this room if they have one
                 let membership = state
-                    .get_content::<Member>(db, pdu.sender().as_str())
+                    .get_content::<Member>(db, &pdu.sender().to_string())
                     .await?
                     .map(|c| c.membership);
 
@@ -144,7 +148,7 @@ pub async fn auth_check_v1(
 
                 // get the sender's membership in this room if they have one
                 let sender_membership = state
-                    .get_content::<Member>(db, pdu.sender().as_str())
+                    .get_content::<Member>(db, &pdu.sender().to_string())
                     .await?
                     .map(|c| c.membership);
 
@@ -173,13 +177,13 @@ pub async fn auth_check_v1(
             }
             Membership::Leave => {
                 let sender_membership = state
-                    .get_content::<Member>(db, pdu.sender().as_str())
+                    .get_content::<Member>(db, &pdu.sender().to_string())
                     .await?
                     .map(|c| c.membership);
 
                 // if a user is leaving of their own accord, only allow it if they were
                 // previously in the room, or if they are declining an invite
-                if pdu.state_key().as_deref() == Some(pdu.sender().as_str()) {
+                if pdu.state_key().as_deref() == Some(&pdu.sender().to_string()) {
                     match sender_membership {
                         Some(Membership::Join | Membership::Invite) => return Ok(Pass),
                         _ => return Ok(Fail),
@@ -218,7 +222,7 @@ pub async fn auth_check_v1(
             }
             Membership::Ban => {
                 let sender_membership = state
-                    .get_content::<Member>(db, pdu.sender().as_str())
+                    .get_content::<Member>(db, &pdu.sender().to_string())
                     .await?
                     .map(|c| c.membership);
 
@@ -244,7 +248,7 @@ pub async fn auth_check_v1(
     }
 
     let sender_membership = state
-        .get_content::<Member>(db, pdu.sender().as_str())
+        .get_content::<Member>(db, &pdu.sender().to_string())
         .await?
         .map(|c| c.membership);
 
@@ -269,7 +273,7 @@ pub async fn auth_check_v1(
     }
 
     if let Some(state_key) = &pdu.state_key() {
-        if state_key.starts_with('@') && *state_key != pdu.sender().as_str() {
+        if state_key.starts_with('@') && *state_key != &pdu.sender().to_string() {
             return Ok(Fail);
         }
     }

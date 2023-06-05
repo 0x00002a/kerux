@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use crate::ServerState;
 
+pub mod domain;
 pub mod mxid;
 pub mod storage;
 

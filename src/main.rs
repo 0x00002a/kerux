@@ -21,7 +21,7 @@ mod util;
 mod validate;
 
 use storage::StorageManager;
-use util::StorageExt;
+use util::{domain::Domain, StorageExt};
 
 #[derive(Deserialize, Clone, Copy, PartialEq, Eq)]
 pub enum DatabaseType {
@@ -32,7 +32,7 @@ pub enum DatabaseType {
 }
 #[derive(Deserialize)]
 pub struct Config {
-    domain: String,
+    domain: Domain,
     bind_address: SocketAddr,
     storage: DatabaseType,
 }

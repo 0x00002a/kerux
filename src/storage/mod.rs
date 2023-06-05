@@ -207,7 +207,7 @@ pub trait Storage: Send + Sync {
                 EventQuery {
                     query_type: QueryType::State {
                         at: None,
-                        state_keys: &[user_id.as_str()],
+                        state_keys: &[&user_id.to_string()],
                         not_state_keys: &[],
                     },
                     room_id,

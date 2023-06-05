@@ -150,7 +150,7 @@ pub async fn sync(
     let db = state.db_pool.get_handle().await?;
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
     Span::current().record("username", &username.as_str());
-    let user_id = MatrixId::new(&username, &state.config.domain).unwrap();
+    let user_id = MatrixId::new(&username, state.config.domain.clone()).unwrap();
 
     let mut batch = db
         .get_batch(req.since.as_deref().unwrap_or("empty"))
@@ -344,7 +344,7 @@ pub async fn get_event(
 
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
     Span::current().record("username", &username.as_str());
-    let user_id = MatrixId::new(&username, &state.config.domain).unwrap();
+    let user_id = MatrixId::new(&username, state.config.domain.clone()).unwrap();
 
     if db.get_membership(&user_id, &room_id).await? != Some(Membership::Join) {
         return Err(ErrorKind::Forbidden.into());
@@ -384,7 +384,7 @@ pub async fn get_state_event_inner(
     let db = state.db_pool.get_handle().await?;
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
     Span::current().record("username", &username.as_str());
-    let user_id = MatrixId::new(&username, &state.config.domain).unwrap();
+    let user_id = MatrixId::new(&username, state.config.domain.clone()).unwrap();
 
     if db.get_membership(&user_id, &room_id).await? != Some(Membership::Join) {
         return Err(ErrorKind::Forbidden.into());
@@ -409,7 +409,7 @@ pub async fn get_state(
     let db = state.db_pool.get_handle().await?;
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
     Span::current().record("username", &username.as_str());
-    let user_id = MatrixId::new(&username, &state.config.domain).unwrap();
+    let user_id = MatrixId::new(&username, state.config.domain.clone()).unwrap();
 
     match db.get_membership(&user_id, &room_id).await? {
         Some(Membership::Join) => {}
@@ -446,7 +446,7 @@ pub async fn get_members(
     let db = state.db_pool.get_handle().await?;
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
     Span::current().record("username", &username.as_str());
-    let user_id = MatrixId::new(&username, &state.config.domain).unwrap();
+    let user_id = MatrixId::new(&username, state.config.domain.clone()).unwrap();
 
     match db.get_membership(&user_id, &room_id).await? {
         Some(Membership::Join) => {}
@@ -492,7 +492,7 @@ pub async fn send_state_event(
     let db = state.db_pool.get_handle().await?;
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
     Span::current().record("username", &username.as_str());
-    let user_id = MatrixId::new(&username, &state.config.domain).unwrap();
+    let user_id = MatrixId::new(&username, state.config.domain.clone()).unwrap();
 
     let event = NewEvent {
         event_content: EventContent::new(&event_type, event_content.into_inner())?,
@@ -524,7 +524,7 @@ pub async fn send_event(
     if !db.record_txn(token.0, txn_id.clone()).await? {
         return Err(ErrorKind::TxnIdExists.into());
     }
-    let user_id = MatrixId::new(&username, &state.config.domain).unwrap();
+    let user_id = MatrixId::new(&username, state.config.domain.clone()).unwrap();
 
     let event = NewEvent {
         event_content: EventContent::new(&event_type, event_content.into_inner())?,

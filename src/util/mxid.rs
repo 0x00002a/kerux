@@ -2,16 +2,16 @@ use displaydoc::Display;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::convert::TryFrom;
+use std::{convert::TryFrom, str::FromStr};
 
-lazy_static! {
-    static ref SERVER_NAME_REGEX: Regex =
-        Regex::new(include_str!("./mxid_server_name.regex")).unwrap();
-}
+use super::domain::Domain;
 
 #[derive(Clone, Debug, Deserialize, Serialize, Hash, PartialEq, Eq)]
 #[serde(try_from = "String")]
-pub struct MatrixId(String);
+pub struct MatrixId {
+    domain: Domain,
+    localpart: String,
+}
 
 #[derive(Debug, Display)]
 pub enum MxidError {
@@ -28,33 +28,33 @@ pub enum MxidError {
 }
 
 impl MatrixId {
-    pub fn new(localpart: &str, domain: &str) -> Result<Self, MxidError> {
-        Self::validate_parts(localpart, domain)?;
-        Ok(MatrixId(format!("@{}:{}", localpart, domain)))
+    ///
+    ///
+    /// Unsafe because it doesn't validate localpart or domain
+    unsafe fn new_unchecked(localpart: String, domain: Domain) -> Self {
+        MatrixId { domain, localpart }
     }
-
-    pub fn as_str(&self) -> &str {
-        &*self.0
+    pub fn new(localpart: &str, domain: Domain) -> Result<Self, MxidError> {
+        Self::validate_parts(localpart, &domain)?;
+        // Safety: We just checked the precondition
+        Ok(unsafe { Self::new_unchecked(localpart.to_owned(), domain) })
     }
-
-    pub fn to_string(self) -> String {
-        self.0
-    }
-
-    pub fn clone_inner(&self) -> String {
-        self.0.clone()
+    pub fn new_with_random_local(domain: Domain) -> Result<Self, MxidError> {
+        let local = "random-username-implement-me";
+        // Safety: Local will always be valid, domain was just checked
+        Ok(unsafe { Self::new_unchecked(local.to_owned(), domain) })
     }
 
     pub fn localpart(&self) -> &str {
-        self.0.trim_start_matches('@').split(':').next().unwrap()
+        &self.localpart
     }
 
-    pub fn domain(&self) -> &str {
-        self.0.split(':').nth(1).unwrap()
+    pub fn domain(&self) -> &Domain {
+        &self.domain
     }
 
     /// Verifies that a localpart and domain could together form a valid Matrix ID.
-    pub fn validate_parts(localpart: &str, domain: &str) -> Result<(), MxidError> {
+    pub fn validate_parts(localpart: &str, domain: &Domain) -> Result<(), MxidError> {
         if localpart.contains(|c: char| {
             !c.is_ascii_lowercase()
                 && !c.is_ascii_digit()
@@ -67,11 +67,7 @@ impl MatrixId {
             return Err(MxidError::InvalidChar);
         }
 
-        if !SERVER_NAME_REGEX.is_match(domain) {
-            return Err(MxidError::InvalidDomain);
-        }
-
-        if localpart.len() + domain.len() + 2 > 255 {
+        if localpart.len() + domain.as_str().len() + 2 > 255 {
             return Err(MxidError::TooLong);
         }
 
@@ -79,7 +75,7 @@ impl MatrixId {
     }
 
     /// Verifies that a `&str` forms a valid Matrix ID.
-    pub fn validate_all(mxid: &str) -> Result<(), MxidError> {
+    pub fn validate_all(mxid: &str) -> Result<(Domain, &str), MxidError> {
         if !mxid.starts_with('@') {
             return Err(MxidError::NoLeadingAt);
         }
@@ -87,30 +83,51 @@ impl MatrixId {
         let (localpart, domain) = {
             let mut iter = remaining.split(':');
             let localpart = iter.next().unwrap();
-            let domain = iter.next().ok_or(MxidError::WrongNumberOfColons)?;
+            let domain: Domain = iter
+                .next()
+                .ok_or(MxidError::WrongNumberOfColons)?
+                .parse()
+                .map_err(|_| MxidError::InvalidDomain)?;
             if iter.next() != None {
                 return Err(MxidError::WrongNumberOfColons);
             }
             (localpart, domain)
         };
-        Self::validate_parts(localpart, domain)?;
+        Self::validate_parts(localpart, &domain)?;
 
-        Ok(())
+        Ok((domain, localpart))
+    }
+}
+impl std::fmt::Display for MatrixId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "@{domain}:{local}",
+            domain = self.domain,
+            local = self.localpart
+        ))
+    }
+}
+
+impl FromStr for MatrixId {
+    type Err = MxidError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let (domain, localpart) = MatrixId::validate_all(&value)?;
+        Ok(unsafe { Self::new_unchecked(localpart.to_owned(), domain) })
+    }
+}
+impl TryFrom<&str> for MatrixId {
+    type Error = MxidError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        value.parse()
     }
 }
 
 impl TryFrom<String> for MatrixId {
     type Error = MxidError;
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        MatrixId::validate_all(&value)?;
-        Ok(MatrixId(value))
-    }
-}
 
-impl TryFrom<&str> for MatrixId {
-    type Error = MxidError;
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        MatrixId::validate_all(value)?;
-        Ok(MatrixId(value.to_string()))
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
     }
 }

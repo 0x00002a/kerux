@@ -80,7 +80,7 @@ pub async fn create_room(
     let db = state.db_pool.get_handle().await?;
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
     Span::current().record("username", &username.as_str());
-    let user_id = MatrixId::new(&username, &state.config.domain).unwrap();
+    let user_id = MatrixId::new(&username, state.config.domain.clone()).unwrap();
 
     let room_version = req.room_version.unwrap_or(RoomVersion::V4);
     if room_version == RoomVersion::Unsupported {
@@ -101,7 +101,7 @@ pub async fn create_room(
         state_key: Some(String::new()),
         unsigned: None,
         redacts: None,
-        origin: state.config.domain.clone(),
+        origin: state.config.domain.to_string(),
         origin_server_ts: chrono::Utc::now().timestamp_millis(),
         prev_events: Vec::new(),
         depth: 0,
@@ -131,7 +131,7 @@ pub async fn create_room(
         NewEvent {
             event_content: EventContent::Member(creator_join),
             sender: user_id.clone(),
-            state_key: Some(user_id.clone_inner()),
+            state_key: Some(user_id.to_string()),
             redacts: None,
             unsigned: None,
         },
@@ -293,7 +293,7 @@ pub async fn invite(
     let db = state.db_pool.get_handle().await?;
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
     Span::current().record("username", &username.as_str());
-    let user_id = MatrixId::new(&username, &state.config.domain).unwrap();
+    let user_id = MatrixId::new(&username, state.config.domain.clone()).unwrap();
     let invitee = req.into_inner().user_id;
     let invitee_profile = db
         .get_profile(&invitee.localpart())
@@ -308,7 +308,7 @@ pub async fn invite(
             is_direct: Some(false),
         }),
         sender: user_id.clone(),
-        state_key: Some(invitee.clone_inner()),
+        state_key: Some(invitee.to_string()),
         redacts: None,
         unsigned: None,
     };
@@ -331,7 +331,7 @@ pub async fn join_by_id_or_alias(
     let db = state.db_pool.get_handle().await?;
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
     Span::current().record("username", &username.as_str());
-    let user_id = MatrixId::new(&username, &state.config.domain).unwrap();
+    let user_id = MatrixId::new(&username, state.config.domain.clone()).unwrap();
     let profile = db.get_profile(&username).await?.unwrap_or_default();
 
     let event = NewEvent {

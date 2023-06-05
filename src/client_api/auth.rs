@@ -140,14 +140,14 @@ pub async fn login(
 
     tracing::info!(username = username.as_str(), "User logged in");
 
-    let user_id = MatrixId::new(&username, &state.config.domain).unwrap();
+    let user_id = MatrixId::new(&username, state.config.domain.clone()).unwrap();
     let access_token = format!("{}", access_token.hyphenated());
 
     Ok(Json(LoginResponse {
         user_id,
         access_token,
         device_id,
-        home_server: state.config.domain.clone(),
+        home_server: state.config.domain.to_string(),
     }))
 }
 
@@ -172,13 +172,12 @@ pub async fn logout_all(
 
 #[derive(Debug, Deserialize)]
 pub struct RegisterRequest {
-    auth: serde_json::Value,
-    bind_email: bool,
-    bind_msisdn: bool,
-    username: String,
-    password: String,
+    auth: Option<serde_json::Value>,
+    username: Option<String>,
+    password: Option<String>,
     device_id: Option<String>,
-    initial_device_display_name: String,
+    initial_device_display_name: Option<String>,
+    #[serde(default)]
     inhibit_login: bool,
 }
 
@@ -198,9 +197,12 @@ pub async fn register(
         None => return Err(ErrorKind::MissingParam("kind".to_string()).into()),
     }
 
-    Span::current().record("username", &&*req.username);
+    Span::current().record("username", &req.username.as_deref());
 
-    let user_id = MatrixId::new(&req.username, &state.config.domain)
+    let user_id = req
+        .username
+        .map(|u| MatrixId::new(&u, state.config.domain.clone()))
+        .unwrap_or_else(|| MatrixId::new_with_random_local(state.config.domain))
         .map_err(|e| ErrorKind::BadJson(format!("{}", e)))?;
 
     let db = state.db_pool.get_handle().await?;

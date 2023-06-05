@@ -34,8 +34,7 @@ pub async fn typing(
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::Forbidden)?;
     Span::current().record("username", &username.as_str());
 
-    if (username.as_str(), state.config.domain.as_str()) != (user_id.localpart(), user_id.domain())
-    {
+    if (username.as_str(), &state.config.domain) != (user_id.localpart(), user_id.domain()) {
         return Err(ErrorKind::Forbidden.into());
     }
     db.set_typing(&room_id, &user_id, req.typing, req.timeout)

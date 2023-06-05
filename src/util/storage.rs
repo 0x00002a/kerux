@@ -47,7 +47,7 @@ pub fn calc_auth_events(event: &NewEvent, state: &State) -> Vec<String> {
     if let Some(power_levels_event) = state.get(("m.room.power_levels", "")) {
         auth_events.push(power_levels_event.to_string());
     }
-    if let Some(member_event) = state.get(("m.room.member", event.sender.as_str())) {
+    if let Some(member_event) = state.get(("m.room.member", &event.sender.to_string())) {
         auth_events.push(member_event.to_string());
     }
     if let EventContent::Member(content) = &event.event_content {
@@ -104,7 +104,7 @@ impl<'a> StorageExt for dyn Storage + 'a {
             state_key: event.state_key,
             unsigned: event.unsigned,
             redacts: event.redacts,
-            origin,
+            origin: origin.to_string(),
             origin_server_ts: chrono::Utc::now().timestamp_millis(),
             prev_events,
             depth: max_depth.saturating_add(1),
