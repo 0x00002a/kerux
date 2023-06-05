@@ -6,7 +6,7 @@ use std::{convert::TryFrom, str::FromStr};
 
 use super::domain::Domain;
 
-#[derive(Clone, Debug, Deserialize, Serialize, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq)]
 #[serde(try_from = "String")]
 pub struct MatrixId {
     domain: Domain,
@@ -83,14 +83,14 @@ impl MatrixId {
         let (localpart, domain) = {
             let mut iter = remaining.split(':');
             let localpart = iter.next().unwrap();
-            let domain: Domain = iter
-                .next()
-                .ok_or(MxidError::WrongNumberOfColons)?
-                .parse()
-                .map_err(|_| MxidError::InvalidDomain)?;
-            if iter.next() != None {
+            let domain_parts = iter.collect::<Vec<_>>();
+            if domain_parts.is_empty() {
                 return Err(MxidError::WrongNumberOfColons);
             }
+            let domain: Domain = domain_parts
+                .join(":")
+                .parse()
+                .map_err(|_| MxidError::InvalidDomain)?;
             (localpart, domain)
         };
         Self::validate_parts(localpart, &domain)?;
@@ -101,7 +101,7 @@ impl MatrixId {
 impl std::fmt::Display for MatrixId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
-            "@{domain}:{local}",
+            "@{local}:{domain}",
             domain = self.domain,
             local = self.localpart
         ))
@@ -129,5 +129,37 @@ impl TryFrom<String> for MatrixId {
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         value.parse()
+    }
+}
+impl Serialize for MatrixId {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.to_string().serialize(serializer)
+    }
+}
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use crate::util::{domain::Domain, MatrixId};
+
+    #[test]
+    fn matrix_id_serializes_correctly() {
+        assert_eq!(
+            serde_json::to_string(
+                &MatrixId::new("test", Domain::new("local".to_owned()).unwrap()).unwrap()
+            )
+            .as_deref()
+            .unwrap(),
+            "\"@test:local\""
+        );
+    }
+    #[test]
+    fn matrix_id_parsing_preserves_port_in_domain() {
+        let id = MatrixId::from_str("@name:test:8000").unwrap();
+        assert_eq!(id.localpart(), "name");
+        assert_eq!(id.domain().as_str(), "test:8000");
     }
 }

@@ -130,7 +130,12 @@ pub async fn get_profile(
     user_id: Path<MatrixId>,
 ) -> Result<Json<JsonValue>, Error> {
     if user_id.domain() != &state.config.domain {
-        return Err(ErrorKind::Unknown("User does not live on this homeserver".to_string()).into());
+        return Err(ErrorKind::Unknown(format!(
+            "User does not live on this homeserver (user domain: {} != server domain {})",
+            user_id.domain(),
+            state.config.domain
+        ))
+        .into());
     }
 
     let db = state.db_pool.get_handle().await?;
