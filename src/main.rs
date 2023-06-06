@@ -23,11 +23,18 @@ mod validate;
 use storage::StorageManager;
 use util::StorageExt;
 
+#[derive(Deserialize, Clone, Copy, PartialEq, Eq)]
+pub enum DatabaseType {
+    #[serde(rename = "sled")]
+    Sled,
+    #[serde(rename = "mem")]
+    InMemory,
+}
 #[derive(Deserialize)]
 pub struct Config {
     domain: String,
     bind_address: String,
-    storage: String,
+    storage: DatabaseType,
 }
 
 pub struct ServerState {
@@ -55,15 +62,14 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     init_tracing();
 
     let config: Config = toml::from_str(&read_to_string("config.toml").await?)?;
-    let db_pool = match &*config.storage {
-        "mem" => {
+    let db_pool = match config.storage {
+        DatabaseType::InMemory => {
             let storage =
                 Box::new(storage::mem::MemStorageManager::new()) as Box<dyn StorageManager>;
             storage.get_handle().await?.create_test_users().await?;
             storage
         }
-        "sled" => Box::new(storage::sled::SledStorage::new("sled")?) as _,
-        _ => panic!("invalid storage type"),
+        DatabaseType::Sled => Box::new(storage::sled::SledStorage::new("sled")?) as _,
     };
     let state_resolver = StateResolver::new(db_pool.get_handle().await?);
     let server_state = Arc::new(ServerState {
