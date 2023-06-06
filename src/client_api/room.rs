@@ -2,7 +2,7 @@ use actix_web::{
     post,
     web::{Data, Json, Path},
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value as JsonValue};
 use std::{collections::HashMap, sync::Arc};
 use tracing::{field::Empty, instrument, Span};
@@ -52,7 +52,7 @@ struct Invite3pid {
     address: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct StateEvent {
     #[serde(rename = "type")]
     ty: String,
