@@ -236,7 +236,7 @@ impl SledStorageHandle {
         let mut ret = Vec::new();
 
         let from_bytes = from.to_be_bytes();
-        let to_bytes = to.clone().map(usize::to_be_bytes);
+        let to_bytes = to.map(usize::to_be_bytes);
         let pdu_iter = match to_bytes {
             Some(to_bytes) => ordering_tree.range(from_bytes..=to_bytes),
             None => ordering_tree.range(from_bytes..),
@@ -253,6 +253,7 @@ impl SledStorageHandle {
             Ok(Ok(v)) => Ok(v),
             Ok(Err(e)) | Err(e) => Err(e),
         });
+        let mut end = 0;
         for pdu in pdu_iter {
             // is Ok(None) if the event is not present, but it must be present if it's in the
             // ordering tree
@@ -260,8 +261,9 @@ impl SledStorageHandle {
             if query.matches(&pdu.inner()) {
                 ret.push(pdu);
             }
+            end += 1;
         }
-        Ok((ret, to.unwrap()))
+        Ok((ret, end))
     }
 }
 fn deserialize<'a, T: Deserialize<'a>>(bytes: &'a [u8]) -> Result<T, Error> {
