@@ -212,4 +212,6 @@ pub struct Event {
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub origin_server_ts: Option<i64>,
+    /// Unique ID for this event
+    pub event_id: String,
 }

@@ -209,12 +209,17 @@ pub struct SledStorageHandle {
     access_tokens: Tree,
     txn_ids: Tree,
     batches: Tree,
+    /// Map of room ids -> event orderings
     room_orderings: Arc<Mutex<HashMap<String, Tree>>>,
     headless_events: Tree,
     ephemeral: Arc<Mutex<HashMap<String, Ephemeral>>>,
 }
 
 impl SledStorageHandle {
+    /// Gets the event ordering information for a room
+    ///
+    /// The event ordering is an ordered list of event id's that can be used
+    /// to impose a total ordering on `EventId`s
     async fn get_room_ordering_tree(&self, room_id: &str) -> Result<Tree, Error> {
         let mut ordering_trees = self.room_orderings.lock().await;
         if let Some(tree) = ordering_trees.get(room_id) {

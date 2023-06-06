@@ -101,6 +101,7 @@ impl PduV4 {
             unsigned: self.unsigned,
             redacts: self.redacts,
             origin_server_ts: Some(self.origin_server_ts),
+            event_id,
         }
     }
 

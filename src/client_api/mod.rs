@@ -43,6 +43,7 @@ pub fn configure_endpoints(cfg: &mut web::ServiceConfig) {
             .service(room_events::get_members)
             .service(room_events::send_state_event)
             .service(room_events::send_event)
+            .service(room_events::messages)
             .service(ephemeral::typing)
             .service(thirdparty_protocols)
     };

@@ -139,6 +139,76 @@ struct LeftRoom {
 struct Presence {
     events: Vec<KvPair>,
 }
+#[derive(Deserialize, Debug, PartialEq, Eq, Copy, Clone, Hash)]
+enum MessageOrdering {
+    #[serde(rename = "f")]
+    Forward,
+    #[serde(rename = "b")]
+    Backward,
+}
+impl Default for MessageOrdering {
+    fn default() -> Self {
+        Self::Forward
+    }
+}
+
+#[derive(Deserialize, Debug)]
+pub struct MessagesParams {
+    from: Option<String>,
+    filter: Option<serde_json::Value>,
+    limit: Option<i32>,
+    to: Option<String>,
+    #[serde(default)]
+    dir: MessageOrdering,
+}
+#[derive(Serialize, Debug)]
+pub struct MessagesResponse {
+    chunk: Vec<Event>,
+    start: String,
+}
+
+#[get("/rooms/{room_id}/messages")]
+#[instrument(skip(state, token), fields(username = Empty), err)]
+pub async fn messages(
+    state: Data<Arc<ServerState>>,
+    token: AccessToken,
+    room_id: Path<String>,
+    params: Query<MessagesParams>,
+) -> Result<Json<MessagesResponse>, Error> {
+    let db = state.db_pool.get_handle().await?;
+    let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
+    Span::current().record("username", username.as_str());
+    let filter = params.filter.as_ref().filter(|f| f.is_object());
+    let query = EventQuery {
+        room_id: room_id.as_str(),
+        query_type: QueryType::Timeline {
+            from: params
+                .from
+                .as_ref()
+                .and_then(|p| p.parse().ok())
+                .unwrap_or_default(),
+            to: None,
+        },
+        contains_json: filter.cloned(),
+        senders: &[],
+        not_senders: &[],
+        types: &[],
+        not_types: &[],
+    };
+    let (mut events, _) = db.query_events(query, false).await?;
+    let start = events
+        .first()
+        .map(|e| e.state_key.as_deref().unwrap_or("empty"))
+        .unwrap_or("empty")
+        .to_owned();
+    if params.dir == MessageOrdering::Backward {
+        events.reverse();
+    }
+    Ok(Json(MessagesResponse {
+        chunk: events,
+        start,
+    }))
+}
 
 #[get("/sync")]
 #[instrument(skip_all, fields(username = Empty), err)]
