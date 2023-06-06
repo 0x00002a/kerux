@@ -351,6 +351,7 @@ pub trait Storage: Send + Sync {
 #[cfg(test)]
 mod tests {
     use super::{Storage, StorageManager};
+    use fs_err as fs;
 
     #[cfg(feature = "storage-mem")]
     #[test]
@@ -369,7 +370,7 @@ mod tests {
     #[test]
     fn sled_backend_user_accounts() {
         let path = "sled-test-user-accounts";
-        let _ = std::fs::remove_dir_all(path);
+        let _ = fs::remove_dir_all(path);
         let mut rt = tokio::runtime::Builder::new_current_thread()
             .build()
             .unwrap();
@@ -378,7 +379,7 @@ mod tests {
             let db = db_pool.get_handle().await.unwrap();
             user_accounts(&*db).await;
         });
-        let _ = std::fs::remove_dir_all(path);
+        let _ = fs::remove_dir_all(path);
     }
 
     async fn user_accounts(db: &dyn Storage) {
@@ -492,7 +493,7 @@ mod tests {
     #[test]
     fn sled_backend_transactions() {
         let path = "sled-test-transactions";
-        let _ = std::fs::remove_dir_all(path);
+        let _ = fs::remove_dir_all(path);
         let mut rt = tokio::runtime::Builder::new_current_thread()
             .build()
             .unwrap();
@@ -501,7 +502,7 @@ mod tests {
             let db = db_pool.get_handle().await.unwrap();
             transactions(&*db).await;
         });
-        let _ = std::fs::remove_dir_all(path);
+        let _ = fs::remove_dir_all(path);
     }
 
     async fn transactions(db: &dyn Storage) {

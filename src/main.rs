@@ -6,10 +6,10 @@ use actix_web::{
     App,
 };
 use error::Error;
+use fs_err::tokio::read_to_string;
 use serde::Deserialize;
 use state::StateResolver;
 use std::sync::Arc;
-use tokio::fs::read_to_string;
 use tracing_subscriber::EnvFilter;
 
 mod client_api;
