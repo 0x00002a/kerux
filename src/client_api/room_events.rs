@@ -157,7 +157,7 @@ impl Default for MessageOrdering {
 pub struct MessagesParams {
     from: Option<String>,
     filter: Option<serde_json::Value>,
-    limit: Option<i32>,
+    limit: Option<usize>,
     to: Option<String>,
     #[serde(default)]
     dir: MessageOrdering,
@@ -188,7 +188,7 @@ pub async fn messages(
                 .as_ref()
                 .and_then(|p| p.parse().ok())
                 .unwrap_or_default(),
-            to: None,
+            to: params.to.as_ref().and_then(|t| t.parse().ok()),
         },
         contains_json: filter.cloned(),
         senders: &[],
@@ -204,6 +204,10 @@ pub async fn messages(
         .to_owned();
     if params.dir == MessageOrdering::Backward {
         events.reverse();
+    }
+    if params.limit.is_some() && events.len() > params.limit.unwrap() {
+        let upper = events.len() - params.limit.unwrap();
+        events.drain(upper..);
     }
     Ok(Json(MessagesResponse {
         chunk: events,
