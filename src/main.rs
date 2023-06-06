@@ -64,10 +64,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let config: Config = toml::from_str(&read_to_string("config.toml").await?)?;
     let db_pool = match config.storage {
         DatabaseType::InMemory => {
-            let storage =
-                Box::new(storage::mem::MemStorageManager::new()) as Box<dyn StorageManager>;
-            storage.get_handle().await?.create_test_users().await?;
-            storage
+            Box::new(storage::mem::MemStorageManager::new()) as Box<dyn StorageManager>
         }
         DatabaseType::Sled => Box::new(storage::sled::SledStorage::new("sled")?) as _,
     };
