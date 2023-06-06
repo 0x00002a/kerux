@@ -9,7 +9,7 @@ use error::Error;
 use fs_err::tokio::read_to_string;
 use serde::Deserialize;
 use state::StateResolver;
-use std::sync::Arc;
+use std::{net::SocketAddr, sync::Arc};
 use tracing_subscriber::EnvFilter;
 
 mod client_api;
@@ -33,7 +33,7 @@ pub enum DatabaseType {
 #[derive(Deserialize)]
 pub struct Config {
     domain: String,
-    bind_address: String,
+    bind_address: SocketAddr,
     storage: DatabaseType,
 }
 
@@ -85,7 +85,7 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
             .service(web::scope("/_matrix/client").configure(client_api::configure_endpoints))
             .service(util::print_the_world)
     })
-    .bind(&server_state2.config.bind_address)?
+    .bind(server_state2.config.bind_address)?
     .run()
     .await?;
     Ok(())
