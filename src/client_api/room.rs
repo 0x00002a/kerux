@@ -2,7 +2,7 @@ use actix_web::{
     post,
     web::{Data, Json, Path},
 };
-use serde::{Deserialize};
+use serde::Deserialize;
 use serde_json::{json, Value as JsonValue};
 use std::{collections::HashMap, sync::Arc};
 use tracing::{field::Empty, instrument, Span};
@@ -16,12 +16,12 @@ use crate::{
         room_version::{v4::UnhashedPdu, VersionedPdu},
         EventContent,
     },
-    storage::{UserProfile},
+    storage::UserProfile,
     util::{storage::NewEvent, MatrixId, StorageExt},
     validate::auth::AuthStatus,
     ServerState,
 };
-
+#[allow(dead_code)]
 #[derive(Deserialize)]
 pub struct CreateRoomRequest {
     visibility: RoomVisibility,
@@ -45,6 +45,7 @@ enum RoomVisibility {
     Private,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize)]
 struct Invite3pid {
     id_server: String,
@@ -61,6 +62,7 @@ struct StateEvent {
     content: JsonValue,
 }
 
+#[allow(clippy::enum_variant_names)] // It needs the postfix because its part of the API
 #[derive(Deserialize)]
 #[serde(rename_all = "snake_case")]
 enum Preset {
@@ -79,7 +81,7 @@ pub async fn create_room(
     let req = req.into_inner();
     let db = state.db_pool.get_handle().await?;
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
-    Span::current().record("username", &username.as_str());
+    Span::current().record("username", username.as_str());
     let user_id = MatrixId::new(&username, state.config.domain.clone()).unwrap();
 
     let room_version = req.room_version.unwrap_or(RoomVersion::V4);
@@ -293,11 +295,11 @@ pub async fn invite(
 ) -> Result<Json<JsonValue>, Error> {
     let db = state.db_pool.get_handle().await?;
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
-    Span::current().record("username", &username.as_str());
+    Span::current().record("username", username.as_str());
     let user_id = MatrixId::new(&username, state.config.domain.clone()).unwrap();
     let invitee = req.into_inner().user_id;
     let invitee_profile = db
-        .get_profile(&invitee.localpart())
+        .get_profile(invitee.localpart())
         .await?
         .unwrap_or_default();
 
@@ -331,7 +333,7 @@ pub async fn join_by_id_or_alias(
     //TODO: implement server_name and third_party_signed args, and room aliases
     let db = state.db_pool.get_handle().await?;
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
-    Span::current().record("username", &username.as_str());
+    Span::current().record("username", username.as_str());
     let user_id = MatrixId::new(&username, state.config.domain.clone()).unwrap();
     let profile = db.get_profile(&username).await?.unwrap_or_default();
 

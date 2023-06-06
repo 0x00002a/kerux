@@ -121,17 +121,11 @@ impl<'a> EventQuery<'a> {
 
 impl<'a> QueryType<'a> {
     pub fn is_timeline(&self) -> bool {
-        match self {
-            QueryType::Timeline { .. } => true,
-            _ => false,
-        }
+        matches!(self, QueryType::Timeline { .. })
     }
 
     pub fn is_state(&self) -> bool {
-        match self {
-            QueryType::State { .. } => true,
-            _ => false,
-        }
+        matches!(self, QueryType::State { .. })
     }
 }
 
@@ -414,10 +408,10 @@ mod tests {
             .await
             .expect("failed to create second user");
 
-        assert!(db.verify_password("alice", "password1").await.unwrap() == true);
-        assert!(db.verify_password("alice", "password2").await.unwrap() == false);
-        assert!(db.verify_password("bob", "password1").await.unwrap() == true);
-        assert!(db.verify_password("bob", "password2").await.unwrap() == false);
+        assert!(db.verify_password("alice", "password1").await.unwrap());
+        assert!(!db.verify_password("alice", "password2").await.unwrap());
+        assert!(db.verify_password("bob", "password1").await.unwrap());
+        assert!(!db.verify_password("bob", "password2").await.unwrap());
 
         let alice_token_1 = db
             .create_access_token("alice", "phone")
@@ -526,23 +520,17 @@ mod tests {
     async fn transactions(db: &dyn Storage) {
         db.create_user("alice", "password").await.unwrap();
         let token = db.create_access_token("alice", "phone").await.unwrap();
-        assert_eq!(
-            db.record_txn(token, String::from("txn1"))
-                .await
-                .expect("failed to record transaction"),
-            true
-        );
-        assert_eq!(
-            db.record_txn(token, String::from("txn1"))
-                .await
-                .expect("failed to record transaction"),
-            false
-        );
-        assert_eq!(
-            db.record_txn(token, String::from("txn2"))
-                .await
-                .expect("failed to record transaction"),
-            true
-        );
+        assert!(db
+            .record_txn(token, String::from("txn1"))
+            .await
+            .expect("failed to record transaction"));
+        assert!(!db
+            .record_txn(token, String::from("txn1"))
+            .await
+            .expect("failed to record transaction"));
+        assert!(db
+            .record_txn(token, String::from("txn2"))
+            .await
+            .expect("failed to record transaction"));
     }
 }

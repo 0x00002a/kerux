@@ -91,7 +91,7 @@ impl Storage for MemStorageHandle {
         let pos = db
             .users
             .iter()
-            .position(|u| &u.username == username)
+            .position(|u| u.username == username)
             .ok_or(Error::from(ErrorKind::UserNotFound))?;
         db.users[pos].profile = profile;
         Ok(())
@@ -100,7 +100,7 @@ impl Storage for MemStorageHandle {
         let salt: [u8; 16] = rand::random();
         let password_hash = argon2::hash_encoded(password.as_bytes(), &salt, &Default::default())?;
         let mut db = self.inner.write().await;
-        if db.users.iter().find(|u| u.username == username).is_some() {
+        if db.users.iter().any(|u| u.username == username) {
             return Err(ErrorKind::UsernameTaken.into());
         }
         db.users.push(User {
@@ -133,7 +133,7 @@ impl Storage for MemStorageHandle {
     async fn create_access_token(&self, username: &str, _device_id: &str) -> Result<Uuid, Error> {
         let mut db = self.inner.write().await;
         let token = Uuid::new_v4();
-        if db.users.iter().find(|u| u.username == username).is_none() {
+        if !db.users.iter().any(|u| u.username == username) {
             return Err(ErrorKind::UserNotFound.into());
         }
         db.access_tokens.insert(token, username.to_string());
@@ -201,11 +201,8 @@ impl Storage for MemStorageHandle {
     async fn add_pdus(&self, pdus: &[StoredPdu]) -> Result<(), Error> {
         let mut db = self.inner.write().await;
         for pdu in pdus {
-            match pdu.event_content() {
-                EventContent::Create(_) => {
-                    db.rooms.insert(pdu.room_id().to_string(), Room::new());
-                }
-                _ => {}
+            if let EventContent::Create(_) = pdu.event_content() {
+                db.rooms.insert(pdu.room_id().to_string(), Room::new());
             }
             db.rooms
                 .get_mut(pdu.room_id())
@@ -243,14 +240,14 @@ impl Storage for MemStorageHandle {
         wait: bool,
     ) -> Result<(Vec<StoredPdu>, usize), Error> {
         let mut ret = Vec::new();
-        let (mut from, mut to) = match &query.query_type {
-            &QueryType::Timeline { from, to } => (from, to),
-            &QueryType::State { at, .. } => (0, at),
+        let (mut from, mut to) = match query.query_type {
+            QueryType::Timeline { from, to } => (from, to),
+            QueryType::State { at, .. } => (0, at),
         };
 
         let db = self.inner.read().await;
         let room = db.rooms.get(query.room_id).ok_or(ErrorKind::RoomNotFound)?;
-        if let None = to {
+        if to.is_none() {
             to = Some(room.events.len() - 1);
         }
 
@@ -258,7 +255,7 @@ impl Storage for MemStorageHandle {
             ret.extend(
                 range
                     .iter()
-                    .filter(|pdu| query.matches(&pdu.inner()))
+                    .filter(|pdu| query.matches(pdu.inner()))
                     .cloned(),
             );
         }
@@ -281,7 +278,7 @@ impl Storage for MemStorageHandle {
         // same again
         let db = self.inner.read().await;
         let room = db.rooms.get(query.room_id).ok_or(ErrorKind::RoomNotFound)?;
-        if let None = to {
+        if to.is_none() {
             to = Some(room.events.len() - 1);
         }
 
@@ -289,7 +286,7 @@ impl Storage for MemStorageHandle {
             ret.extend(
                 range
                     .iter()
-                    .filter(|pdu| query.matches(&pdu.inner()))
+                    .filter(|pdu| query.matches(pdu.inner()))
                     .cloned(),
             );
         }
@@ -317,8 +314,7 @@ impl Storage for MemStorageHandle {
         let event = db
             .rooms
             .get(room_id)
-            .map(|r| r.events.iter().find(|e| e.event_id() == event_id))
-            .flatten()
+            .and_then(|r| r.events.iter().find(|e| e.event_id() == event_id))
             .cloned();
         Ok(event)
     }

@@ -1,6 +1,5 @@
 use displaydoc::Display;
 
-
 use serde::{Deserialize, Serialize};
 use std::{convert::TryFrom, str::FromStr};
 
@@ -112,7 +111,7 @@ impl FromStr for MatrixId {
     type Err = MxidError;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        let (domain, localpart) = MatrixId::validate_all(&value)?;
+        let (domain, localpart) = MatrixId::validate_all(value)?;
         Ok(unsafe { Self::new_unchecked(localpart.to_owned(), domain) })
     }
 }

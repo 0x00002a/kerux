@@ -247,7 +247,7 @@ impl SledStorageHandle {
             None => ordering_tree.range(from_bytes..),
         }
         .map_ok(|(_key, event_id)| {
-            self.events.get(&format!(
+            self.events.get(format!(
                 "{}_{}",
                 query.room_id,
                 String::from_utf8(Vec::from(event_id.as_ref())).unwrap()
@@ -263,7 +263,7 @@ impl SledStorageHandle {
             // is Ok(None) if the event is not present, but it must be present if it's in the
             // ordering tree
             let pdu: StoredPdu = deserialize(pdu?.unwrap().as_ref())?;
-            if query.matches(&pdu.inner()) {
+            if query.matches(pdu.inner()) {
                 ret.push(pdu);
             }
             end += 1;
@@ -294,8 +294,8 @@ impl Storage for SledStorageHandle {
         let password_hash = argon2::hash_encoded(password.as_bytes(), &salt, &Default::default())?;
         let did_insert = self.users.try_insert_value(
             username,
-            &User {
-                password_hash: password_hash.to_string(),
+            User {
+                password_hash,
                 ..Default::default()
             },
         )?;
@@ -325,7 +325,7 @@ impl Storage for SledStorageHandle {
         }
         self.access_tokens.try_insert_value(
             token.as_bytes(),
-            &AccessTokenData {
+            AccessTokenData {
                 username: username.to_string(),
                 device_id: device_id.to_string(),
             },
@@ -368,7 +368,7 @@ impl Storage for SledStorageHandle {
 
     async fn record_txn(&self, token: Uuid, txn_id: String) -> Result<bool, Error> {
         let name = format!("{}_{}", token, txn_id);
-        let is_new = self.txn_ids.insert(&name, &[])?.is_none();
+        let is_new = self.txn_ids.insert(name, &[])?.is_none();
         Ok(is_new)
     }
 
@@ -401,7 +401,7 @@ impl Storage for SledStorageHandle {
         for pdu in pdus {
             let name = format!("{}_{}", pdu.room_id(), pdu.event_id());
             self.events.try_insert_value(name, pdu)?;
-            let ordering_tree = self.get_room_ordering_tree(&pdu.room_id()).await?;
+            let ordering_tree = self.get_room_ordering_tree(pdu.room_id()).await?;
             'cas: loop {
                 let idx = ordering_tree
                     .last()?
@@ -449,14 +449,14 @@ impl Storage for SledStorageHandle {
         query: EventQuery<'a>,
         wait: bool,
     ) -> Result<(Vec<StoredPdu>, usize), Error> {
-        let ordering_tree = self.get_room_ordering_tree(&query.room_id).await?;
+        let ordering_tree = self.get_room_ordering_tree(query.room_id).await?;
         if ordering_tree.is_empty() {
             return Err(ErrorKind::RoomNotFound.into());
         }
 
-        let (mut from, mut to) = match &query.query_type {
-            &QueryType::Timeline { from, to } => (from, to),
-            &QueryType::State { at, .. } => (0, at),
+        let (mut from, mut to) = match query.query_type {
+            QueryType::Timeline { from, to } => (from, to),
+            QueryType::State { at, .. } => (0, at),
         };
 
         let res = self.get_events(&ordering_tree, &query, from, to).await?;
@@ -466,7 +466,7 @@ impl Storage for SledStorageHandle {
             return Ok(res);
         }
 
-        self.events.watch_prefix(&query.room_id).await;
+        self.events.watch_prefix(query.room_id).await;
         from = to.unwrap();
         to = None;
 
@@ -484,7 +484,7 @@ impl Storage for SledStorageHandle {
 
     async fn get_pdu(&self, room_id: &str, event_id: &str) -> Result<Option<StoredPdu>, Error> {
         self.events
-            .get_value(&format!("{}_{}", room_id, event_id))
+            .get_value(format!("{}_{}", room_id, event_id))
             .map_err(Into::into)
     }
 
@@ -567,7 +567,7 @@ impl Storage for SledStorageHandle {
             .users
             .get_value(username)?
             .ok_or(ErrorKind::UserNotFound)?;
-        Ok(user.account_data.clone())
+        Ok(user.account_data)
     }
 
     async fn get_batch(&self, id: &str) -> Result<Option<Batch>, Error> {

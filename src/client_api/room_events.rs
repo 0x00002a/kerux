@@ -28,6 +28,7 @@ pub struct SyncRequest {
     #[serde(default)]
     full_state: bool,
     #[serde(default = "default_set_presence")]
+    #[allow(unused)]
     set_presence: SetPresence,
     #[serde(default)]
     timeout: u32,
@@ -219,7 +220,7 @@ pub async fn sync(
 ) -> Result<Json<SyncResponse>, Error> {
     let db = state.db_pool.get_handle().await?;
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
-    Span::current().record("username", &username.as_str());
+    Span::current().record("username", username.as_str());
     let user_id = MatrixId::new(&username, state.config.domain.clone()).unwrap();
 
     let mut batch = db
@@ -246,7 +247,7 @@ pub async fn sync(
         match membership {
             Membership::Join => {
                 batch.invites.remove(room_id);
-                let from = batch.rooms.get(room_id).map(|v| *v).unwrap_or(0);
+                let from = batch.rooms.get(room_id).copied().unwrap_or(0);
                 let (events, progress) = db
                     .query_events(
                         EventQuery {
@@ -265,13 +266,13 @@ pub async fn sync(
 
                 let mut state_events = Vec::new();
                 if req.full_state {
-                    state_events = db.get_full_state(&room_id).await?;
+                    state_events = db.get_full_state(room_id).await?;
                 }
 
                 if !events.is_empty() || !state_events.is_empty() {
                     something_happened = true;
                 }
-                let (joined, invited) = db.get_room_member_counts(&room_id).await?;
+                let (joined, invited) = db.get_room_member_counts(room_id).await?;
                 let summary = RoomSummary {
                     heroes: None,
                     joined_member_count: joined,
@@ -307,7 +308,7 @@ pub async fn sync(
             }
             Membership::Invite if !batch.invites.contains(room_id) => {
                 let events = db
-                    .get_full_state(&room_id)
+                    .get_full_state(room_id)
                     .await?
                     .into_iter()
                     .map(|e| StrippedState {
@@ -335,7 +336,7 @@ pub async fn sync(
 
     let mut queries = Vec::new();
     for (&room_id, _) in memberships.iter().filter(|(_, m)| **m == Membership::Join) {
-        let from = batch.rooms.get(room_id).map(|v| *v).unwrap_or(0);
+        let from = batch.rooms.get(room_id).copied().unwrap_or(0);
         let room_id_clone = String::from(room_id);
         queries.push(
             db.query_events(
@@ -365,6 +366,7 @@ pub async fn sync(
     tokio::select! {
         _ = timeout => {
             db.set_batch(&next_batch_id, batch).await?;
+            #[allow(clippy::needless_return)] // I think it gets confused by select?
             return Ok(Json(res));
         },
         ((query_res, room_id), _, _) = futures::future::select_all(queries) => {
@@ -397,6 +399,7 @@ pub async fn sync(
                 }
             );
             db.set_batch(&next_batch_id, batch).await?;
+            #[allow(clippy::needless_return)]
             return Ok(Json(res));
         },
     };
@@ -413,7 +416,7 @@ pub async fn get_event(
     let db = state.db_pool.get_handle().await?;
 
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
-    Span::current().record("username", &username.as_str());
+    Span::current().record("username", username.as_str());
     let user_id = MatrixId::new(&username, state.config.domain.clone()).unwrap();
 
     if db.get_membership(&user_id, &room_id).await? != Some(Membership::Join) {
@@ -453,7 +456,7 @@ pub async fn get_state_event_inner(
 ) -> Result<Json<Event>, Error> {
     let db = state.db_pool.get_handle().await?;
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
-    Span::current().record("username", &username.as_str());
+    Span::current().record("username", username.as_str());
     let user_id = MatrixId::new(&username, state.config.domain.clone()).unwrap();
 
     if db.get_membership(&user_id, &room_id).await? != Some(Membership::Join) {
@@ -478,7 +481,7 @@ pub async fn get_state(
 ) -> Result<Json<Vec<Event>>, Error> {
     let db = state.db_pool.get_handle().await?;
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
-    Span::current().record("username", &username.as_str());
+    Span::current().record("username", username.as_str());
     let user_id = MatrixId::new(&username, state.config.domain.clone()).unwrap();
 
     match db.get_membership(&user_id, &room_id).await? {
@@ -515,7 +518,7 @@ pub async fn get_members(
 ) -> Result<Json<MembersResponse>, Error> {
     let db = state.db_pool.get_handle().await?;
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
-    Span::current().record("username", &username.as_str());
+    Span::current().record("username", username.as_str());
     let user_id = MatrixId::new(&username, state.config.domain.clone()).unwrap();
 
     match db.get_membership(&user_id, &room_id).await? {
@@ -561,7 +564,7 @@ pub async fn send_state_event(
     let (room_id, event_type, state_key) = path.into_inner();
     let db = state.db_pool.get_handle().await?;
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
-    Span::current().record("username", &username.as_str());
+    Span::current().record("username", username.as_str());
     let user_id = MatrixId::new(&username, state.config.domain.clone()).unwrap();
 
     let event = NewEvent {
@@ -590,7 +593,7 @@ pub async fn send_event(
     let (room_id, event_type, txn_id) = path.into_inner();
     let db = state.db_pool.get_handle().await?;
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
-    Span::current().record("username", &username.as_str());
+    Span::current().record("username", username.as_str());
     if !db.record_txn(token.0, txn_id.clone()).await? {
         return Err(ErrorKind::TxnIdExists.into());
     }

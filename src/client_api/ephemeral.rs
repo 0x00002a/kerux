@@ -2,7 +2,7 @@ use actix_web::{
     put,
     web::{Data, Json, Path},
 };
-use serde::{Deserialize};
+use serde::Deserialize;
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tracing::{field::Empty, instrument, Span};
@@ -32,7 +32,7 @@ pub async fn typing(
     let (room_id, user_id) = path.into_inner();
     let db = state.db_pool.get_handle().await?;
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::Forbidden)?;
-    Span::current().record("username", &username.as_str());
+    Span::current().record("username", username.as_str());
 
     if (username.as_str(), &state.config.domain) != (user_id.localpart(), user_id.domain()) {
         return Err(ErrorKind::Forbidden.into());

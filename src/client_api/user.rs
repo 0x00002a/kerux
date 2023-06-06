@@ -28,7 +28,7 @@ pub async fn get_avatar_url(
 
     let db = state.db_pool.get_handle().await?;
     let avatar_url = match db
-        .get_profile(&user_id.localpart())
+        .get_profile(user_id.localpart())
         .await?
         .unwrap()
         .avatar_url
@@ -50,7 +50,7 @@ pub async fn set_avatar_url(
 ) -> Result<Json<()>, Error> {
     let db = state.db_pool.get_handle().await?;
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
-    Span::current().record("username", &username.as_str());
+    Span::current().record("username", username.as_str());
 
     if req_id.localpart() != username {
         return Err(ErrorKind::Forbidden.into());
@@ -82,7 +82,7 @@ pub async fn get_display_name(
 
     let db = state.db_pool.get_handle().await?;
     let displayname = match db
-        .get_profile(&user_id.localpart())
+        .get_profile(user_id.localpart())
         .await?
         .unwrap()
         .displayname
@@ -104,7 +104,7 @@ pub async fn set_display_name(
 ) -> Result<Json<()>, Error> {
     let db = state.db_pool.get_handle().await?;
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
-    Span::current().record("username", &username.as_str());
+    Span::current().record("username", username.as_str());
 
     if req_id.localpart() != username {
         return Err(ErrorKind::Forbidden.into());
@@ -120,7 +120,7 @@ pub async fn set_display_name(
         .ok_or(ErrorKind::BadJson(String::from(
             "displayname should be a string",
         )))?;
-    db.set_display_name(&username, &display_name).await?;
+    db.set_display_name(&username, display_name).await?;
     Ok(Json(()))
 }
 
@@ -144,7 +144,7 @@ pub async fn get_profile(
         avatar_url,
         displayname,
         ..
-    } = db.get_profile(&user_id.localpart()).await?.unwrap();
+    } = db.get_profile(user_id.localpart()).await?.unwrap();
     let mut response = serde_json::Map::new();
     if let Some(v) = avatar_url {
         response.insert("avatar_url".into(), v.into());
@@ -160,6 +160,7 @@ pub async fn get_profile(
 pub struct UserDirSearchRequest {
     search_term: String,
     #[serde(default)]
+    #[allow(unused)]
     limit: Option<usize>,
 }
 
@@ -219,6 +220,7 @@ struct Threepid {
     added_at: u64,
 }
 
+#[allow(dead_code)]
 #[derive(Serialize)]
 pub enum Medium {
     Email,

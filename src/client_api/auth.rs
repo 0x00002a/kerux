@@ -78,6 +78,7 @@ pub async fn get_supported_login_types() -> Json<serde_json::Value> {
     }))
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct LoginRequest {
     #[serde(rename = "type")]
@@ -89,6 +90,7 @@ pub struct LoginRequest {
     initial_device_display_name: String,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
 enum Identifier {
@@ -172,6 +174,7 @@ pub async fn logout_all(
     Ok(Json(()))
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct RegisterRequest {
     auth: Option<serde_json::Value>,
@@ -250,7 +253,7 @@ pub async fn register(
         return Err(ErrorKind::Unimplemented.into());
     }
 
-    Span::current().record("username", &req.username.as_deref());
+    Span::current().record("username", req.username.as_deref());
 
     let user_id = req
         .username
@@ -260,7 +263,7 @@ pub async fn register(
 
     let db = state.db_pool.get_handle().await?;
     db.create_user(
-        &user_id.localpart(),
+        user_id.localpart(),
         &req.password
             .ok_or_else(|| Error::from(ErrorKind::BadJson("missing password".to_owned())))?,
     )
@@ -275,7 +278,7 @@ pub async fn register(
         .device_id
         .unwrap_or(format!("{:08X}", rand::random::<u32>()));
     let access_token = db
-        .create_access_token(&user_id.localpart(), &device_id)
+        .create_access_token(user_id.localpart(), &device_id)
         .await?;
     let access_token = format!("{}", access_token.hyphenated());
 

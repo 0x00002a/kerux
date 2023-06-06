@@ -52,7 +52,7 @@ impl State {
     ) -> Result<Option<T>, Error> {
         if let Some(event_id) = self.get((T::EVENT_TYPE, state_key)) {
             let event = db
-                .get_pdu(&self.room_id, &event_id)
+                .get_pdu(&self.room_id, event_id)
                 .await?
                 .expect("event in state doesn't exist");
             return Ok(Some(
@@ -73,7 +73,7 @@ impl State {
                 Cow::from(pdu.event_content().get_type().to_string()),
                 Cow::from(pdu.state_key().unwrap().to_string()),
             ),
-            pdu.event_id().to_string(),
+            pdu.event_id(),
         );
     }
 }
@@ -100,7 +100,7 @@ impl StateResolver {
     #[tracing::instrument(level = tracing::Level::DEBUG, skip(self))]
     #[async_recursion::async_recursion]
     pub async fn resolve_v2(&self, room_id: &str, events: &[String]) -> Result<State, Error> {
-        if events.len() == 0 {
+        if events.is_empty() {
             return Ok(State {
                 room_id: room_id.to_owned(),
                 map: HashMap::new(),
@@ -122,7 +122,7 @@ impl StateResolver {
                     state_key = event.state_key().unwrap(),
                     "applying one event on top of state"
                 );
-                state.insert_event(&event.inner());
+                state.insert_event(event.inner());
             }
             self.cache
                 .lock()
@@ -200,7 +200,7 @@ impl StateResolver {
         let mut power_events = HashSet::new();
         for event_id in full_conflicted_set.iter() {
             let event = self.db.get_pdu(room_id, event_id).await?.unwrap();
-            if is_power_event(&event.inner()) {
+            if is_power_event(event.inner()) {
                 power_events.insert(event_id.clone());
             }
         }
@@ -226,7 +226,7 @@ impl StateResolver {
         // event ids
         let future_iter = ordered_power_event_ids
             .iter()
-            .map(|event_id| self.db.get_pdu(&room_id, event_id));
+            .map(|event_id| self.db.get_pdu(room_id, event_id));
         let ordered_power_events = futures::stream::iter(future_iter)
             .then(|f| f)
             .try_filter_map(|opt| async { Ok(opt) }) // Ok(Some(x)) -> Ok(x), Ok(None) filtered out
@@ -268,7 +268,7 @@ impl StateResolver {
         let mut current = mainline_starting_point;
         while let Some(parent) = get_power_levels(
             self.db
-                .get_pdu(room_id, &current)
+                .get_pdu(room_id, current)
                 .await?
                 .unwrap()
                 .inner()
@@ -277,7 +277,7 @@ impl StateResolver {
         .await?
         {
             mainline.push(parent.clone());
-            current = &mainline.last().unwrap();
+            current = mainline.last().unwrap();
         }
 
         // Tuple of event_id and index of closest mainline event to that event
@@ -367,11 +367,11 @@ impl StateResolver {
         let intersection = {
             let mut iter = chains.iter();
             let first = iter.next().unwrap().clone();
-            iter.fold(first, |acc, x| acc.intersection(&x).cloned().collect())
+            iter.fold(first, |acc, x| acc.intersection(x).cloned().collect())
         };
         let union = chains
             .iter()
-            .fold(HashSet::new(), |acc, x| acc.union(&x).cloned().collect());
+            .fold(HashSet::new(), |acc, x| acc.union(x).cloned().collect());
         let difference = union.difference(&intersection).cloned().collect();
         Ok(difference)
     }
@@ -393,11 +393,11 @@ impl StateResolver {
 
         let mut ret = Vec::new();
         let mut candidates = Vec::new();
-        while events.len() > 0 {
+        while !events.is_empty() {
             // get the events in the graph with no parents
             'outer: for (id1, event1) in events.iter() {
                 for (_id2, event2) in events.iter() {
-                    if event2.auth_events().contains(&id1) {
+                    if event2.auth_events().contains(id1) {
                         continue 'outer;
                     }
                 }
@@ -408,7 +408,7 @@ impl StateResolver {
             for event in candidates.iter() {
                 let power_level = self
                     .db
-                    .get_sender_power_level(&event.room_id(), &event.event_id())
+                    .get_sender_power_level(event.room_id(), &event.event_id())
                     .await?;
                 sender_power_levels.insert(event.event_id(), power_level);
             }
@@ -427,10 +427,10 @@ impl StateResolver {
                 }
 
                 // aaaaaaaaa
-                return a.event_id().cmp(&b.event_id());
+                a.event_id().cmp(&b.event_id())
             });
 
-            ret.extend(candidates.drain(..).map(|pdu| pdu.event_id().to_string()));
+            ret.extend(candidates.drain(..).map(|pdu| pdu.event_id()));
         }
 
         Ok(ret)
@@ -467,15 +467,15 @@ impl StateResolver {
                                 && pdu.state_key() == Some(auth_key.1.as_ref())
                         })
                         .expect("auth event wasn't present in db");
-                    frankenstate.insert_event(&fallback_event.inner());
+                    frankenstate.insert_event(fallback_event.inner());
                 }
             }
 
             // if it passes auth now, we can add it to the state
-            if crate::validate::auth::auth_check_v1(&*self.db, &event, &frankenstate).await?
+            if crate::validate::auth::auth_check_v1(&*self.db, event, &frankenstate).await?
                 == AuthStatus::Pass
             {
-                state.insert_event(&event);
+                state.insert_event(event);
             }
         }
 
@@ -498,6 +498,7 @@ fn is_power_event(pdu: &VersionedPdu) -> bool {
     }
 }
 
+#[allow(clippy::needless_lifetimes)] // Is eliding it here *really* better for readiability clippy?
 fn auth_types_for_event<'a>(pdu: &'a VersionedPdu) -> HashSet<(&'a str, Cow<'a, str>)> {
     let mut ret = HashSet::new();
     if pdu.event_content().get_type() == "m.room.create" {
@@ -556,7 +557,7 @@ mod tests {
             EventContent,
         },
         storage::{Storage, StorageManager},
-        util::{storage::NewEvent, MatrixId, StorageExt},
+        util::{storage::NewEvent, MatrixId},
     };
 
     use super::StateResolver;
@@ -619,7 +620,7 @@ mod tests {
         ) -> Result<String, Error> {
             let prev_depth = depth.checked_sub(1).unwrap();
             let prev_events = &self.depth_map[prev_depth];
-            let state = state_resolver.resolve(&self.room_id, &prev_events).await?;
+            let state = state_resolver.resolve(&self.room_id, prev_events).await?;
 
             let new_event = NewEvent {
                 event_content: content.into(),
