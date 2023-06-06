@@ -2,7 +2,7 @@ use actix_web::{
     put,
     web::{Data, Json, Path},
 };
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize};
 use serde_json::{json, Value};
 use std::sync::Arc;
 use tracing::{field::Empty, instrument, Span};

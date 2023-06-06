@@ -1,7 +1,6 @@
 use actix_web::{
     get,
-    web::{self, Json},
-    HttpResponse, Scope,
+    web::{self, Json}, Scope,
 };
 use serde_json::json;
 

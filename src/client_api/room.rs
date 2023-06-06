@@ -1,8 +1,8 @@
 use actix_web::{
     post,
-    web::{Data, Json, Path, Query},
+    web::{Data, Json, Path},
 };
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize};
 use serde_json::{json, Value as JsonValue};
 use std::{collections::HashMap, sync::Arc};
 use tracing::{field::Empty, instrument, Span};
@@ -16,7 +16,7 @@ use crate::{
         room_version::{v4::UnhashedPdu, VersionedPdu},
         EventContent,
     },
-    storage::{EventQuery, QueryType, UserProfile},
+    storage::{UserProfile},
     util::{storage::NewEvent, MatrixId, StorageExt},
     validate::auth::AuthStatus,
     ServerState,
