@@ -273,7 +273,7 @@ pub async fn status(
         .db_pool
         .get_handle()
         .await?
-        .set_status(&user_id.to_string(), req.0 .0)
+        .set_status(user_id.localpart(), req.0 .0)
         .await?;
     Ok(Json(json!({})))
 }
