@@ -127,6 +127,7 @@ pub async fn auth_check_v1(
                     .await?
                     .map(|c| c.join_rule);
 
+                #[allow(clippy::if_same_then_else)]
                 if join_rule == Some(JoinRule::Invite)
                     && (membership == Some(Membership::Join)
                         || membership == Some(Membership::Invite))
