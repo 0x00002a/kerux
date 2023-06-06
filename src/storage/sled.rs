@@ -396,17 +396,19 @@ impl Storage for SledStorageHandle {
             self.events.try_insert_value(name, pdu)?;
             let ordering_tree = self.get_room_ordering_tree(&pdu.room_id()).await?;
             'cas: loop {
-                if let Some((key, _value)) = ordering_tree.last()? {
-                    let idx = u32::from_be_bytes(key[0..4].try_into().unwrap()) + 1;
-                    let res = ordering_tree.compare_and_swap(
-                        &u32::to_be_bytes(idx),
-                        Option::<&[u8]>::None,
-                        Some(&*pdu.event_id()),
-                    )?;
-                    if res.is_ok() {
-                        break 'cas;
-                    }
+                let idx = ordering_tree
+                    .last()?
+                    .map(|(k, _)| u32::from_be_bytes(k[0..4].try_into().unwrap()) + 1)
+                    .unwrap_or(0);
+                let res = ordering_tree.compare_and_swap(
+                    u32::to_be_bytes(idx),
+                    Option::<&[u8]>::None,
+                    Some(&*pdu.event_id()),
+                )?;
+                if res.is_ok() {
+                    break 'cas;
                 }
+                tokio::task::yield_now().await;
             }
             for prev_event in pdu.prev_events() {
                 self.headless_events
@@ -567,5 +569,61 @@ impl Storage for SledStorageHandle {
 
     async fn set_batch(&self, id: &str, batch: Batch) -> Result<(), Error> {
         self.batches.overwrite_value(id, batch).map(drop)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use fs_err as fs;
+
+    use crate::{
+        events::{
+            pdu::StoredPdu,
+            room,
+            room_version::{v4::UnhashedPdu, VersionedPdu},
+            EventContent,
+        },
+        storage::StorageManager,
+        util::{domain::Domain, MatrixId},
+        validate::auth::AuthStatus,
+    };
+    #[tokio::test]
+    async fn adding_pdus_does_not_hang() {
+        let path = "sled-test-transactions";
+        let _ = fs::remove_dir_all(path);
+        let db_pool = super::SledStorage::new(path).unwrap();
+        let db = db_pool.get_handle().await.unwrap();
+        let domain = Domain::from_str("local").unwrap();
+        let user_id = MatrixId::new_with_random_local(domain.clone()).unwrap();
+        let room_id = "!test@local".to_owned();
+        let create_event = UnhashedPdu {
+            event_content: EventContent::Create(room::Create {
+                creator: user_id.clone(),
+                room_version: Some(room::RoomVersion::V4),
+                predecessor: None,
+                extra: Default::default(),
+            }),
+            room_id: room_id.clone(),
+            sender: user_id.clone(),
+            state_key: Some(String::new()),
+            unsigned: None,
+            redacts: None,
+            origin: domain.to_string(),
+            origin_server_ts: chrono::Utc::now().timestamp_millis(),
+            prev_events: Vec::new(),
+            depth: 0,
+            auth_events: Vec::new(),
+        }
+        .finalize();
+        let pdus = [StoredPdu {
+            inner: VersionedPdu::V4(create_event),
+            auth_status: AuthStatus::Pass,
+        }];
+        let fut = db.add_pdus(&pdus);
+        let r = tokio::time::timeout(std::time::Duration::from_millis(200), fut).await;
+        let _ = fs::remove_dir_all(path);
+        assert!(r.is_ok());
     }
 }
