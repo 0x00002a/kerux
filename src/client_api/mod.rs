@@ -40,6 +40,7 @@ pub fn configure_endpoints(cfg: &mut web::ServiceConfig) {
             .service(room_events::send_state_event)
             .service(room_events::send_event)
             .service(ephemeral::typing)
+            .service(thirdparty_protocols)
     };
 
     cfg.service(mount(web::scope("/r0")));
@@ -53,4 +54,9 @@ async fn versions() -> Json<serde_json::Value> {
             "v1.7",
         ]
     }))
+}
+
+#[get("/thirdparty/protocols")]
+async fn thirdparty_protocols() -> Json<serde_json::Value> {
+    Json(json!({}))
 }
