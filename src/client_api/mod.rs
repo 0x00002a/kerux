@@ -27,6 +27,7 @@ pub fn configure_endpoints(cfg: &mut web::ServiceConfig) {
             .service(user::get_profile)
             .service(user::search_user_directory)
             .service(user::get_3pids)
+            .service(user::filter_events)
             .service(room::create_room)
             .service(room::invite)
             .service(room::join_by_id_or_alias)

@@ -230,3 +230,17 @@ pub async fn get_3pids(
         threepids: Vec::new(),
     }))
 }
+
+#[derive(Serialize, Debug)]
+pub struct FilterEventsResponse {
+    filter_id: String,
+}
+
+/// https://spec.matrix.org/v1.7/client-server-api/#post_matrixclientv3useruseridfilter
+#[post("/user/{user_id}/filter")]
+pub async fn filter_events() -> Result<Json<FilterEventsResponse>, Error> {
+    // TODO: This should actually be implemented
+    Ok(Json(FilterEventsResponse {
+        filter_id: "todo".to_owned(),
+    }))
+}
