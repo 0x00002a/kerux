@@ -573,7 +573,7 @@ mod tests {
             let creation = UnhashedPdu {
                 event_content: EventContent::Create(Create {
                     creator: creator.clone(),
-                    room_version: Some(String::from("4")),
+                    room_version: Some(crate::events::room::RoomVersion::V4),
                     predecessor: None,
                     extra: HashMap::new(),
                 }),
@@ -673,7 +673,7 @@ mod tests {
                 UnhashedPdu {
                     event_content: EventContent::Create(Create {
                         creator: alice.clone(),
-                        room_version: Some(String::from("4")),
+                        room_version: Some(crate::events::room::RoomVersion::V4),
                         predecessor: None,
                         extra: HashMap::new(),
                     }),

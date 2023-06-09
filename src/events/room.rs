@@ -6,13 +6,21 @@ use crate::util::MatrixId;
 
 use super::Redactable;
 
+#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub enum RoomVersion {
+    #[serde(rename = "4")]
+    V4,
+    #[serde(other)]
+    Unsupported,
+}
+
 /// m.room.create
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Create {
     pub creator: MatrixId,
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub room_version: Option<String>,
+    pub room_version: Option<RoomVersion>,
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub predecessor: Option<PreviousRoom>,

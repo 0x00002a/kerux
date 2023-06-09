@@ -12,7 +12,7 @@ use crate::{
     error::{Error, ErrorKind},
     events::{
         pdu::StoredPdu,
-        room,
+        room::{self, RoomVersion},
         room_version::{v4::UnhashedPdu, VersionedPdu},
         EventContent,
     },
@@ -30,7 +30,7 @@ pub struct CreateRoomRequest {
     topic: Option<String>,
     invite: Option<Vec<String>>,
     invite_3pid: Option<Vec<Invite3pid>>,
-    room_version: Option<String>,
+    room_version: Option<RoomVersion>,
     creation_content: Option<HashMap<String, JsonValue>>,
     initial_state: Option<Vec<StateEvent>>,
     preset: Option<Preset>,
@@ -82,8 +82,8 @@ pub async fn create_room(
     Span::current().record("username", &username.as_str());
     let user_id = MatrixId::new(&username, &state.config.domain).unwrap();
 
-    let room_version = req.room_version.unwrap_or("4".to_string());
-    if room_version != "4" {
+    let room_version = req.room_version.unwrap_or(RoomVersion::V4);
+    if room_version == RoomVersion::Unsupported {
         return Err(ErrorKind::UnsupportedRoomVersion.into());
     }
 
