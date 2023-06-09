@@ -84,6 +84,19 @@ async fn run() -> Result<(), Box<dyn std::error::Error>> {
             ))
             .service(web::scope("/_matrix/client").configure(client_api::configure_endpoints))
             .service(util::print_the_world)
+            .wrap(
+                actix_cors::Cors::default()
+                    .send_wildcard()
+                    .allow_any_origin()
+                    .allowed_methods(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+                    .allowed_headers(vec![
+                        "Origin",
+                        "X-Requested-With",
+                        "Content-Type",
+                        "Accept",
+                        "Authorization",
+                    ]),
+            )
     })
     .bind(server_state2.config.bind_address)?
     .run()

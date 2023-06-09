@@ -39,18 +39,6 @@ pub fn configure_endpoints(cfg: &mut web::ServiceConfig) {
             .service(room_events::send_state_event)
             .service(room_events::send_event)
             .service(ephemeral::typing)
-            .wrap(
-                actix_cors::Cors::default()
-                    .send_wildcard()
-                    .allowed_methods(vec!["GET", "POST", "PUT", "DELETE", "OPTIONS"])
-                    .allowed_headers(vec![
-                        "Origin",
-                        "X-Requested-With",
-                        "Content-Type",
-                        "Accept",
-                        "Authorization",
-                    ]),
-            )
     };
 
     cfg.service(mount(web::scope("/r0")));
