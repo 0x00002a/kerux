@@ -69,8 +69,6 @@ pub enum ErrorKind {
     /// A database error occurred: {0}.
     SledError(sled::Error),
     #[cfg(feature = "storage-sled")]
-    /// A database error occurred: {0}.
-    BincodeError(bincode::Error),
     /// A password error occurred: {0}
     PasswordError(argon2::Error),
     /// The requested feature is unimplemented.
@@ -99,7 +97,7 @@ impl ResponseError for Error {
             LimitExceeded => StatusCode::TOO_MANY_REQUESTS,
             AddEventError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             #[cfg(feature = "storage-sled")]
-            SledError(_) | BincodeError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            SledError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Unimplemented => StatusCode::NOT_IMPLEMENTED,
         }
     }
@@ -120,7 +118,7 @@ impl ResponseError for Error {
             TxnIdExists | UrlNotUtf8(_) | PasswordError(_) | Unimplemented | AddEventError(_)
             | Unknown(_) => "M_UNKNOWN",
             #[cfg(feature = "storage-sled")]
-            SledError(_) | BincodeError(_) => "M_UNKNOWN",
+            SledError(_) => "M_UNKNOWN",
         };
         let error = format!("{}", self);
         HttpResponseBuilder::new(self.status_code()).json(json!({
@@ -180,12 +178,5 @@ impl From<AddEventError> for ErrorKind {
 impl From<sled::Error> for ErrorKind {
     fn from(e: sled::Error) -> Self {
         ErrorKind::SledError(e)
-    }
-}
-
-#[cfg(feature = "storage-sled")]
-impl From<bincode::Error> for ErrorKind {
-    fn from(e: bincode::Error) -> Self {
-        ErrorKind::BincodeError(e)
     }
 }

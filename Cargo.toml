@@ -7,7 +7,7 @@ edition = "2018"
 [features]
 default = ["storage-mem", "storage-sled"]
 storage-mem = []
-storage-sled = ["sled", "bincode"]
+storage-sled = ["sled"]
 storage-postgres = ["tokio-postgres"]
 
 [dependencies]
@@ -40,6 +40,5 @@ tracing-subscriber = { version = "0.3.17", features = ["env-filter", "fmt"] }
 uuid = { version = "1.3.3", features = ["v4"] }
 
 sled = { version = "0.34", optional = true }
-bincode = { version = "1.3", optional = true }
 tokio-postgres = { version = "0.7.8", features = ["with-uuid-0_8", "with-serde_json-1"], optional = true }
 fs-err = { version = "2.9.0", features = ["tokio"] }

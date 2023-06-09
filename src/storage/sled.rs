@@ -6,7 +6,6 @@ use std::{
 };
 
 use async_trait::async_trait;
-use bincode::{DefaultOptions, Options};
 use itertools::Itertools;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value as JsonValue;
@@ -55,7 +54,7 @@ impl TreeExt for Tree {
     type Error = Error;
     fn get_value<K: AsRef<[u8]>, V: DeserializeOwned>(&self, key: K) -> Result<Option<V>, Error> {
         self.get(key)?
-            .map(|bytes| DefaultOptions::new().deserialize(&bytes))
+            .map(|bytes| deserialize(&bytes))
             .transpose()
             .map_err(Into::into)
     }
@@ -65,9 +64,9 @@ impl TreeExt for Tree {
         key: K,
         value: V,
     ) -> Result<Option<V>, Error> {
-        let bytes = DefaultOptions::new().serialize(&value)?;
+        let bytes = serialize(&value)?;
         self.insert(key, &*bytes)?
-            .map(|bytes| DefaultOptions::new().deserialize(&bytes))
+            .map(|bytes| deserialize(&bytes))
             .transpose()
             .map_err(Into::into)
     }
@@ -77,7 +76,7 @@ impl TreeExt for Tree {
         key: K,
         value: V,
     ) -> Result<bool, Error> {
-        let bytes = DefaultOptions::new().serialize(&value)?;
+        let bytes = serialize(&value)?;
         if self.contains_key(&key)? {
             return Ok(false);
         }
@@ -90,20 +89,20 @@ impl TreeExt for Tree {
         key: K,
         value: V,
     ) -> Result<bool, Error> {
-        let bytes = DefaultOptions::new().serialize(&value)?;
+        let bytes = serialize(&value)?;
         let was_there = self.insert(key, &*bytes)?.is_some();
         Ok(was_there)
     }
 }
 
 impl TreeExt for TransactionalTree {
-    type Error = ConflictableTransactionError<bincode::Error>;
+    type Error = ConflictableTransactionError<Error>;
     fn get_value<K: AsRef<[u8]>, V: DeserializeOwned>(
         &self,
         key: K,
     ) -> Result<Option<V>, Self::Error> {
         self.get(key)?
-            .map(|bytes| DefaultOptions::new().deserialize(&bytes))
+            .map(|bytes| deserialize(&bytes))
             .transpose()
             .map_err(ConflictableTransactionError::Abort)
     }
@@ -113,11 +112,9 @@ impl TreeExt for TransactionalTree {
         key: K,
         value: V,
     ) -> Result<Option<V>, Self::Error> {
-        let bytes = DefaultOptions::new()
-            .serialize(&value)
-            .map_err(ConflictableTransactionError::Abort)?;
+        let bytes = serialize(&value).map_err(ConflictableTransactionError::Abort)?;
         self.insert(IVec::from(key.as_ref()), &*bytes)?
-            .map(|bytes| DefaultOptions::new().deserialize(&bytes))
+            .map(|bytes| deserialize(&bytes))
             .transpose()
             .map_err(ConflictableTransactionError::Abort)
     }
@@ -127,9 +124,7 @@ impl TreeExt for TransactionalTree {
         key: K,
         value: V,
     ) -> Result<bool, Self::Error> {
-        let bytes = DefaultOptions::new()
-            .serialize(&value)
-            .map_err(ConflictableTransactionError::Abort)?;
+        let bytes = serialize(&value).map_err(ConflictableTransactionError::Abort)?;
         if self.get(&key)?.is_some() {
             return Ok(false);
         }
@@ -142,9 +137,7 @@ impl TreeExt for TransactionalTree {
         key: K,
         value: V,
     ) -> Result<bool, Self::Error> {
-        let bytes = DefaultOptions::new()
-            .serialize(&value)
-            .map_err(ConflictableTransactionError::Abort)?;
+        let bytes = serialize(&value).map_err(ConflictableTransactionError::Abort)?;
         let was_there = self.insert(IVec::from(key.as_ref()), &*bytes)?.is_some();
         Ok(was_there)
     }
@@ -263,13 +256,19 @@ impl SledStorageHandle {
         for pdu in pdu_iter {
             // is Ok(None) if the event is not present, but it must be present if it's in the
             // ordering tree
-            let pdu: StoredPdu = DefaultOptions::new().deserialize(pdu?.unwrap().as_ref())?;
+            let pdu: StoredPdu = deserialize(pdu?.unwrap().as_ref())?;
             if query.matches(&pdu.inner()) {
                 ret.push(pdu);
             }
         }
         Ok((ret, to.unwrap()))
     }
+}
+fn deserialize<'a, T: Deserialize<'a>>(bytes: &'a [u8]) -> Result<T, Error> {
+    serde_json::from_slice(bytes).map_err(Into::into)
+}
+fn serialize<T: Serialize>(value: &T) -> Result<Vec<u8>, Error> {
+    serde_json::to_vec(value).map_err(Into::into)
 }
 
 #[async_trait]
@@ -331,9 +330,7 @@ impl Storage for SledStorageHandle {
             let mut to_delete = Vec::new();
             for res in iter {
                 let (key, val) = res?;
-                let data = DefaultOptions::new()
-                    .deserialize::<AccessTokenData>(&val)
-                    .unwrap();
+                let data = deserialize::<AccessTokenData>(&val).unwrap();
                 if data.username == username {
                     to_delete.push(key);
                 }
