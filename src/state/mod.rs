@@ -643,10 +643,9 @@ mod tests {
             );
             let event_id = pdu.event_id();
 
+            assert!(self.depth_map.len() >= depth, "can't insert event there");
             if self.depth_map.len() == depth {
                 self.depth_map.push(Vec::new());
-            } else if self.depth_map.len() < depth {
-                panic!("can't insert event there");
             }
             self.depth_map[depth].push(event_id.clone());
 
