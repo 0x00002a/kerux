@@ -98,9 +98,9 @@ impl VersionedPdu {
 
 /// Delegations to version-specific functionality
 impl VersionedPdu {
-    pub fn to_client_format(self) -> Event {
+    pub fn into_client_format(self) -> Event {
         match self {
-            VersionedPdu::V4(pdu) => pdu.to_client_format(),
+            VersionedPdu::V4(pdu) => pdu.into_client_format(),
         }
     }
 }

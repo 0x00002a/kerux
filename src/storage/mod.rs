@@ -188,7 +188,9 @@ pub trait Storage: Send + Sync {
     ) -> Result<(Vec<Event>, usize), Error> {
         let (pdus, next_batch) = self.query_pdus(query, wait).await?;
         return Ok((
-            pdus.into_iter().map(StoredPdu::to_client_format).collect(),
+            pdus.into_iter()
+                .map(StoredPdu::into_client_format)
+                .collect(),
             next_batch,
         ));
     }

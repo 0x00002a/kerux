@@ -92,7 +92,7 @@ impl UnhashedPdu {
 
 impl PduV4 {
     /// Turns a PDU into a format which is suitable for clients.
-    pub fn to_client_format(self) -> Event {
+    pub fn into_client_format(self) -> Event {
         Event {
             event_content: self.event_content,
             room_id: Some(self.room_id),

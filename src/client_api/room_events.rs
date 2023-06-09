@@ -351,7 +351,7 @@ pub async fn get_event(
     }
 
     match db.get_pdu(&room_id, &event_id).await? {
-        Some(pdu) => Ok(Json(pdu.to_client_format())),
+        Some(pdu) => Ok(Json(pdu.into_client_format())),
         None => Err(ErrorKind::NotFound.into()),
     }
 }

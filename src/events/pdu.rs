@@ -20,8 +20,8 @@ impl StoredPdu {
         &self.inner
     }
 
-    pub fn to_client_format(self) -> Event {
-        self.inner.to_client_format()
+    pub fn into_client_format(self) -> Event {
+        self.inner.into_client_format()
     }
 
     pub fn event_content(&self) -> &EventContent {
