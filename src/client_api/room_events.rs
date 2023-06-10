@@ -14,7 +14,7 @@ use crate::{
     error::{Error, ErrorKind},
     events::{room::Membership, Event, EventContent},
     storage::{EventQuery, QueryType},
-    util::{storage::NewEvent, MatrixId, StorageExt},
+    util::{mxid::RoomId, storage::NewEvent, MatrixId, StorageExt},
     ServerState,
 };
 
@@ -56,9 +56,9 @@ pub struct SyncResponse {
 
 #[derive(Debug, Default, Serialize)]
 struct Rooms {
-    join: HashMap<String, JoinedRoom>,
-    invite: HashMap<String, InvitedRoom>,
-    leave: HashMap<String, LeftRoom>,
+    join: HashMap<RoomId, JoinedRoom>,
+    invite: HashMap<RoomId, InvitedRoom>,
+    leave: HashMap<RoomId, LeftRoom>,
 }
 
 #[derive(Debug, Serialize)]
@@ -173,7 +173,7 @@ pub struct MessagesResponse {
 pub async fn messages(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
-    room_id: Path<String>,
+    room_id: Path<RoomId>,
     params: Query<MessagesParams>,
 ) -> Result<Json<MessagesResponse>, Error> {
     let db = state.db_pool.get_handle().await?;
@@ -181,7 +181,7 @@ pub async fn messages(
     Span::current().record("username", username.as_str());
     let filter = params.filter.as_ref().filter(|f| f.is_object());
     let query = EventQuery {
-        room_id: room_id.as_str(),
+        room_id: &room_id,
         query_type: QueryType::Timeline {
             from: params
                 .from
@@ -300,7 +300,7 @@ pub async fn sync(
                 };
                 let account_data = AccountData { events: Vec::new() };
                 res.rooms.join.insert(
-                    String::from(room_id),
+                    room_id.clone(),
                     JoinedRoom {
                         summary,
                         state,
@@ -341,7 +341,7 @@ pub async fn sync(
     let mut queries = Vec::new();
     for (&room_id, _) in memberships.iter().filter(|(_, m)| **m == Membership::Join) {
         let from = batch.rooms.get(room_id).copied().unwrap_or(0);
-        let room_id_clone = String::from(room_id);
+        let room_id_clone = room_id.clone();
         queries.push(
             db.query_events(
                 EventQuery {
@@ -414,7 +414,7 @@ pub async fn sync(
 pub async fn get_event(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
-    path: Path<(String, String)>,
+    path: Path<(RoomId, String)>,
 ) -> Result<Json<Event>, Error> {
     let (room_id, event_id) = path.into_inner();
     let db = state.db_pool.get_handle().await?;
@@ -437,7 +437,7 @@ pub async fn get_event(
 pub async fn get_state_event_no_key(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
-    path_args: Path<(String, String)>,
+    path_args: Path<(RoomId, String)>,
 ) -> Result<Json<Event>, Error> {
     let (room_id, event_type) = path_args.into_inner();
     get_state_event_inner(state, token, (room_id, event_type, String::new())).await
@@ -447,7 +447,7 @@ pub async fn get_state_event_no_key(
 pub async fn get_state_event_key(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
-    path_args: Path<(String, String, String)>,
+    path_args: Path<(RoomId, String, String)>,
 ) -> Result<Json<Event>, Error> {
     get_state_event_inner(state, token, path_args.into_inner()).await
 }
@@ -456,7 +456,7 @@ pub async fn get_state_event_key(
 pub async fn get_state_event_inner(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
-    (room_id, event_type, state_key): (String, String, String),
+    (room_id, event_type, state_key): (RoomId, String, String),
 ) -> Result<Json<Event>, Error> {
     let db = state.db_pool.get_handle().await?;
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
@@ -481,7 +481,7 @@ pub async fn get_state_event_inner(
 pub async fn get_state(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
-    room_id: Path<String>,
+    room_id: Path<RoomId>,
 ) -> Result<Json<Vec<Event>>, Error> {
     let db = state.db_pool.get_handle().await?;
     let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
@@ -517,7 +517,7 @@ pub struct MembersResponse {
 pub async fn get_members(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
-    room_id: Path<String>,
+    room_id: Path<RoomId>,
     req: Query<MembersRequest>,
 ) -> Result<Json<MembersResponse>, Error> {
     let db = state.db_pool.get_handle().await?;
@@ -562,7 +562,7 @@ pub struct SendEventResponse {
 pub async fn send_state_event(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
-    path: Path<(String, String, String)>,
+    path: Path<(RoomId, String, String)>,
     event_content: Json<JsonValue>,
 ) -> Result<Json<SendEventResponse>, Error> {
     let (room_id, event_type, state_key) = path.into_inner();
@@ -591,7 +591,7 @@ pub async fn send_state_event(
 pub async fn send_event(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
-    path: Path<(String, String, String)>,
+    path: Path<(RoomId, String, String)>,
     event_content: Json<JsonValue>,
 ) -> Result<Json<SendEventResponse>, Error> {
     let (room_id, event_type, txn_id) = path.into_inner();

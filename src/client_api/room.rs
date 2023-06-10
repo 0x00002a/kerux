@@ -17,7 +17,7 @@ use crate::{
         EventContent,
     },
     storage::UserProfile,
-    util::{storage::NewEvent, MatrixId, StorageExt},
+    util::{mxid::RoomId, storage::NewEvent, MatrixId, StorageExt},
     validate::auth::AuthStatus,
     ServerState,
 };
@@ -89,7 +89,7 @@ pub async fn create_room(
         return Err(ErrorKind::UnsupportedRoomVersion.into());
     }
 
-    let room_id = format!("!{:016X}:{}", rand::random::<i64>(), state.config.domain);
+    let room_id = RoomId::new_with_random_local(state.config.domain.clone()).unwrap();
 
     let create_event = UnhashedPdu {
         event_content: EventContent::Create(room::Create {
@@ -275,7 +275,7 @@ pub async fn create_room(
         .await?;
     }
 
-    tracing::info!(room_id = room_id.as_str(), "Created room");
+    tracing::info!(room_id = room_id.to_string(), "Created room");
 
     Ok(Json(json!({ "room_id": room_id })))
 }
@@ -290,7 +290,7 @@ pub struct InviteRequest {
 pub async fn invite(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
-    room_id: Path<String>,
+    room_id: Path<RoomId>,
     req: Json<InviteRequest>,
 ) -> Result<Json<JsonValue>, Error> {
     let db = state.db_pool.get_handle().await?;
@@ -327,7 +327,7 @@ pub async fn invite(
 pub async fn join_by_id_or_alias(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
-    room_id_or_alias: Path<String>,
+    room_id_or_alias: Path<RoomId>,
 ) -> Result<Json<JsonValue>, Error> {
     let room_id_or_alias = room_id_or_alias.into_inner();
     //TODO: implement server_name and third_party_signed args, and room aliases

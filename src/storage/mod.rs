@@ -11,7 +11,7 @@ use crate::{
         pdu::StoredPdu, presence::Status, room::Membership, room_version::VersionedPdu, Event,
         EventContent,
     },
-    util::MatrixId,
+    util::{mxid::RoomId, MatrixId},
 };
 
 #[cfg(feature = "storage-mem")]
@@ -31,7 +31,7 @@ pub struct UserProfile {
 #[derive(Clone)]
 pub struct EventQuery<'a> {
     pub query_type: QueryType<'a>,
-    pub room_id: &'a str,
+    pub room_id: &'a RoomId,
     /// A list of event senders to include in the result. If the list is empty all senders are
     /// included.
     pub senders: &'a [&'a MatrixId],
@@ -132,9 +132,9 @@ impl<'a> QueryType<'a> {
 #[derive(Clone, Default, Deserialize, Serialize)]
 pub struct Batch {
     /// Indices into the event storage of the rooms that the user is in.
-    pub rooms: HashMap<String, usize>,
+    pub rooms: HashMap<RoomId, usize>,
     /// A set of rooms to which the user has been invited, where they are already aware of this.
-    pub invites: HashSet<String>,
+    pub invites: HashSet<RoomId>,
 }
 
 #[async_trait]
@@ -183,7 +183,7 @@ pub trait Storage: Send + Sync {
 
     async fn add_pdus(&self, pdus: &[StoredPdu]) -> Result<(), Error>;
 
-    async fn get_prev_events(&self, room_id: &str) -> Result<(Vec<String>, i64), Error>;
+    async fn get_prev_events(&self, room_id: &RoomId) -> Result<(Vec<String>, i64), Error>;
 
     async fn query_pdus<'a>(
         &self,
@@ -205,12 +205,12 @@ pub trait Storage: Send + Sync {
         ));
     }
 
-    async fn get_rooms(&self) -> Result<Vec<String>, Error>;
+    async fn get_rooms(&self) -> Result<Vec<RoomId>, Error>;
 
     async fn get_membership(
         &self,
         user_id: &MatrixId,
-        room_id: &str,
+        room_id: &RoomId,
     ) -> Result<Option<Membership>, Error> {
         let event = self
             .query_events(
@@ -243,7 +243,7 @@ pub trait Storage: Send + Sync {
     /// Returns the number of users in a room and the number of users invited to the room.
     ///
     /// Returns (0, 0) if the room does not exist.
-    async fn get_room_member_counts(&self, room_id: &str) -> Result<(usize, usize), Error> {
+    async fn get_room_member_counts(&self, room_id: &RoomId) -> Result<(usize, usize), Error> {
         let join_query = EventQuery {
             query_type: QueryType::State {
                 at: None,
@@ -270,7 +270,7 @@ pub trait Storage: Send + Sync {
         Ok((join_count, invited_count))
     }
 
-    async fn get_full_state(&self, room_id: &str) -> Result<Vec<Event>, Error> {
+    async fn get_full_state(&self, room_id: &RoomId) -> Result<Vec<Event>, Error> {
         let (ret, _) = self
             .query_events(
                 EventQuery {
@@ -294,7 +294,7 @@ pub trait Storage: Send + Sync {
 
     async fn get_state_event(
         &self,
-        room_id: &str,
+        room_id: &RoomId,
         event_type: &str,
         state_key: &str,
     ) -> Result<Option<Event>, Error> {
@@ -321,26 +321,29 @@ pub trait Storage: Send + Sync {
         Ok(ret)
     }
 
-    async fn get_pdu(&self, room_id: &str, event_id: &str) -> Result<Option<StoredPdu>, Error>;
+    async fn get_pdu(&self, room_id: &RoomId, event_id: &str) -> Result<Option<StoredPdu>, Error>;
 
-    async fn get_all_ephemeral(&self, room_id: &str) -> Result<HashMap<String, JsonValue>, Error>;
+    async fn get_all_ephemeral(
+        &self,
+        room_id: &RoomId,
+    ) -> Result<HashMap<String, JsonValue>, Error>;
 
     async fn get_ephemeral(
         &self,
-        room_id: &str,
+        room_id: &RoomId,
         event_type: &str,
     ) -> Result<Option<JsonValue>, Error>;
 
     async fn set_ephemeral(
         &self,
-        room_id: &str,
+        room_id: &RoomId,
         event_type: &str,
         content: Option<JsonValue>,
     ) -> Result<(), Error>;
 
     async fn set_typing(
         &self,
-        room_id: &str,
+        room_id: &RoomId,
         user_id: &MatrixId,
         is_typing: bool,
         timeout: u32,

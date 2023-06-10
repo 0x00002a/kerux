@@ -20,7 +20,7 @@ use crate::{
     error::{Error, ErrorKind},
     events::{ephemeral::Typing, pdu::StoredPdu},
     storage::{Storage, StorageManager},
-    util::MatrixId,
+    util::{mxid::RoomId, MatrixId},
 };
 
 use super::{Batch, EventQuery, QueryType, UserProfile};
@@ -210,9 +210,9 @@ pub struct SledStorageHandle {
     txn_ids: Tree,
     batches: Tree,
     /// Map of room ids -> event orderings
-    room_orderings: Arc<Mutex<HashMap<String, Tree>>>,
+    room_orderings: Arc<Mutex<HashMap<RoomId, Tree>>>,
     headless_events: Tree,
-    ephemeral: Arc<Mutex<HashMap<String, Ephemeral>>>,
+    ephemeral: Arc<Mutex<HashMap<RoomId, Ephemeral>>>,
 }
 
 impl SledStorageHandle {
@@ -220,13 +220,13 @@ impl SledStorageHandle {
     ///
     /// The event ordering is an ordered list of event id's that can be used
     /// to impose a total ordering on `EventId`s
-    async fn get_room_ordering_tree(&self, room_id: &str) -> Result<Tree, Error> {
+    async fn get_room_ordering_tree(&self, room_id: &RoomId) -> Result<Tree, Error> {
         let mut ordering_trees = self.room_orderings.lock().await;
         if let Some(tree) = ordering_trees.get(room_id) {
             Ok(tree.clone())
         } else {
-            let tree = self.all.open_tree(room_id)?;
-            ordering_trees.insert(room_id.to_string(), tree.clone());
+            let tree = self.all.open_tree(room_id.to_string())?;
+            ordering_trees.insert(room_id.to_owned(), tree.clone());
             Ok(tree)
         }
     }
@@ -423,14 +423,17 @@ impl Storage for SledStorageHandle {
             }
             self.headless_events
                 .insert(&format!("{}~{}", pdu.room_id(), pdu.event_id()), &[])?;
-            self.rooms.insert(pdu.room_id(), &[])?;
+            self.rooms.insert(pdu.room_id().to_string(), &[])?;
         }
         Ok(())
     }
 
-    async fn get_prev_events(&self, room_id: &str) -> Result<(Vec<String>, i64), Error> {
-        let max_depth: i64 = self.headless_events.get_value(room_id)?.unwrap_or(-1);
-        let mut prefix = String::from(room_id).into_bytes();
+    async fn get_prev_events(&self, room_id: &RoomId) -> Result<(Vec<String>, i64), Error> {
+        let max_depth: i64 = self
+            .headless_events
+            .get_value(room_id.to_string())?
+            .unwrap_or(-1);
+        let mut prefix = room_id.to_string().into_bytes();
         prefix.push(b'~');
         self.headless_events
             .scan_prefix(&prefix)
@@ -466,7 +469,7 @@ impl Storage for SledStorageHandle {
             return Ok(res);
         }
 
-        self.events.watch_prefix(query.room_id).await;
+        self.events.watch_prefix(query.room_id.to_string()).await;
         from = to.unwrap();
         to = None;
 
@@ -474,25 +477,33 @@ impl Storage for SledStorageHandle {
         self.get_events(&ordering_tree, &query, from, to).await
     }
 
-    async fn get_rooms(&self) -> Result<Vec<String>, Error> {
+    async fn get_rooms(&self) -> Result<Vec<RoomId>, Error> {
         self.rooms
             .iter()
-            .map_ok(|(key, _value)| String::from_utf8(Vec::from(key.as_ref())).unwrap())
+            .map_ok(|(key, _value)| {
+                String::from_utf8(Vec::from(key.as_ref()))
+                    .unwrap()
+                    .parse()
+                    .unwrap()
+            })
             .collect::<Result<Vec<_>, _>>()
             .map_err(Into::into)
     }
 
-    async fn get_pdu(&self, room_id: &str, event_id: &str) -> Result<Option<StoredPdu>, Error> {
+    async fn get_pdu(&self, room_id: &RoomId, event_id: &str) -> Result<Option<StoredPdu>, Error> {
         self.events
             .get_value(format!("{}_{}", room_id, event_id))
             .map_err(Into::into)
     }
 
-    async fn get_all_ephemeral(&self, room_id: &str) -> Result<HashMap<String, JsonValue>, Error> {
+    async fn get_all_ephemeral(
+        &self,
+        room_id: &RoomId,
+    ) -> Result<HashMap<String, JsonValue>, Error> {
         //TODO: this inserts an ephemeral entry even if the room doesn't actually exist - figure
         // out what to do about it
         let mut ephemerals = self.ephemeral.lock().await;
-        let ephemeral = ephemerals.entry(String::from(room_id)).or_default();
+        let ephemeral = ephemerals.entry(room_id.to_owned()).or_default();
         let mut ret = ephemeral.ephemeral.clone();
         ret.insert(
             String::from("m.typing"),
@@ -503,11 +514,11 @@ impl Storage for SledStorageHandle {
 
     async fn get_ephemeral(
         &self,
-        room_id: &str,
+        room_id: &RoomId,
         event_type: &str,
     ) -> Result<Option<JsonValue>, Error> {
         let mut ephemerals = self.ephemeral.lock().await;
-        let ephemeral = ephemerals.entry(String::from(room_id)).or_default();
+        let ephemeral = ephemerals.entry(room_id.to_owned()).or_default();
         if event_type == "m.typing" {
             let typing = ephemeral.get_typing();
             match typing.user_ids.is_empty() {
@@ -521,7 +532,7 @@ impl Storage for SledStorageHandle {
 
     async fn set_ephemeral(
         &self,
-        room_id: &str,
+        room_id: &RoomId,
         event_type: &str,
         content: Option<JsonValue>,
     ) -> Result<(), Error> {
@@ -530,7 +541,7 @@ impl Storage for SledStorageHandle {
             "m.typing should not be set directly"
         );
         let mut ephemerals = self.ephemeral.lock().await;
-        let ephemeral = ephemerals.entry(String::from(room_id)).or_default();
+        let ephemeral = ephemerals.entry(room_id.to_owned()).or_default();
         match content {
             Some(c) => ephemeral.ephemeral.insert(String::from(event_type), c),
             None => ephemeral.ephemeral.remove(event_type),
@@ -540,13 +551,13 @@ impl Storage for SledStorageHandle {
 
     async fn set_typing(
         &self,
-        room_id: &str,
+        room_id: &RoomId,
         user_id: &MatrixId,
         is_typing: bool,
         timeout: u32,
     ) -> Result<(), Error> {
         let mut ephemerals = self.ephemeral.lock().await;
-        let ephemeral = ephemerals.entry(String::from(room_id)).or_default();
+        let ephemeral = ephemerals.entry(room_id.to_owned()).or_default();
         if is_typing {
             ephemeral.typing.insert(
                 user_id.clone(),
@@ -593,7 +604,7 @@ mod tests {
             EventContent,
         },
         storage::StorageManager,
-        util::{domain::Domain, MatrixId},
+        util::{domain::Domain, mxid::RoomId, MatrixId},
         validate::auth::AuthStatus,
     };
     #[tokio::test]
@@ -604,7 +615,7 @@ mod tests {
         let db = db_pool.get_handle().await.unwrap();
         let domain = Domain::from_str("local").unwrap();
         let user_id = MatrixId::new_with_random_local(domain.clone()).unwrap();
-        let room_id = "!test@local".to_owned();
+        let room_id = RoomId::from_str("!test@local").unwrap();
         let create_event = UnhashedPdu {
             event_content: EventContent::Create(room::Create {
                 creator: user_id.clone(),

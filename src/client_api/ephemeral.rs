@@ -10,7 +10,7 @@ use tracing::{field::Empty, instrument, Span};
 use crate::{
     client_api::auth::AccessToken,
     error::{Error, ErrorKind},
-    util::MatrixId,
+    util::{mxid::RoomId, MatrixId},
     ServerState,
 };
 
@@ -26,7 +26,7 @@ pub struct TypingRequest {
 pub async fn typing(
     state: Data<Arc<ServerState>>,
     token: AccessToken,
-    path: Path<(String, MatrixId)>,
+    path: Path<(RoomId, MatrixId)>,
     req: Json<TypingRequest>,
 ) -> Result<Json<Value>, Error> {
     let (room_id, user_id) = path.into_inner();

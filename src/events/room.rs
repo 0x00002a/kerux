@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::collections::HashMap;
 
-use crate::util::MatrixId;
+use crate::util::{mxid::RoomId, MatrixId};
 
 use super::Redactable;
 
@@ -30,7 +30,7 @@ pub struct Create {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct PreviousRoom {
-    pub room_id: String,
+    pub room_id: RoomId,
     pub event_id: String,
 }
 

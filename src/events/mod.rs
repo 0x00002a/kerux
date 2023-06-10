@@ -1,7 +1,7 @@
 use serde::{de::Error, ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value as JsonValue;
 
-use crate::util::MatrixId;
+use crate::util::{mxid::RoomId, MatrixId};
 
 pub mod ephemeral;
 pub mod pdu;
@@ -199,7 +199,7 @@ pub struct Event {
     /// Sometimes this is present outside this struct, in which case None is used
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub room_id: Option<String>,
+    pub room_id: Option<RoomId>,
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state_key: Option<String>,

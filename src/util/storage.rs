@@ -15,6 +15,8 @@ use crate::{
     util::MatrixId,
 };
 
+use super::mxid::RoomId;
+
 // TODO: builder pattern
 #[derive(Debug)]
 pub struct NewEvent {
@@ -70,12 +72,12 @@ pub fn calc_auth_events(event: &NewEvent, state: &State) -> Vec<String> {
 pub trait StorageExt {
     async fn add_event(
         &self,
-        room_id: &str,
+        room_id: &RoomId,
         event: NewEvent,
         state_resolver: &StateResolver,
     ) -> Result<String, Error>;
 
-    async fn get_sender_power_level(&self, room_id: &str, event_id: &str) -> Result<u32, Error>;
+    async fn get_sender_power_level(&self, room_id: &RoomId, event_id: &str) -> Result<u32, Error>;
 
     async fn create_test_users(&self) -> Result<(), Error>;
 }
@@ -84,7 +86,7 @@ pub trait StorageExt {
 impl<'a> StorageExt for dyn Storage + 'a {
     async fn add_event(
         &self,
-        room_id: &str,
+        room_id: &RoomId,
         event: NewEvent,
         state_resolver: &StateResolver,
     ) -> Result<String, Error> {
@@ -99,7 +101,7 @@ impl<'a> StorageExt for dyn Storage + 'a {
         let origin = event.sender.domain().to_owned();
         let unhashed = UnhashedPdu {
             event_content: event.event_content,
-            room_id: String::from(room_id),
+            room_id: room_id.to_owned(),
             sender: event.sender,
             state_key: event.state_key,
             unsigned: event.unsigned,
@@ -125,7 +127,7 @@ impl<'a> StorageExt for dyn Storage + 'a {
 
     //TODO: check return type
     //TODO: should we handle users that aren't in the room
-    async fn get_sender_power_level(&self, room_id: &str, event_id: &str) -> Result<u32, Error> {
+    async fn get_sender_power_level(&self, room_id: &RoomId, event_id: &str) -> Result<u32, Error> {
         let event = self
             .get_pdu(room_id, event_id)
             .await?

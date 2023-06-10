@@ -15,11 +15,11 @@ use crate::{
     error::{Error, ErrorKind},
     events::{ephemeral::Typing, pdu::StoredPdu, EventContent},
     storage::{Batch, EventQuery, QueryType, Storage, StorageManager, UserProfile},
-    util::MatrixId,
+    util::{mxid::RoomId, MatrixId},
 };
 
 struct MemStorage {
-    rooms: HashMap<String, Room>,
+    rooms: HashMap<RoomId, Room>,
     users: Vec<User>,
     access_tokens: HashMap<Uuid, String>,
     batches: HashMap<String, Batch>,
@@ -202,7 +202,7 @@ impl Storage for MemStorageHandle {
         let mut db = self.inner.write().await;
         for pdu in pdus {
             if let EventContent::Create(_) = pdu.event_content() {
-                db.rooms.insert(pdu.room_id().to_string(), Room::new());
+                db.rooms.insert(pdu.room_id().to_owned(), Room::new());
             }
             db.rooms
                 .get_mut(pdu.room_id())
@@ -213,7 +213,7 @@ impl Storage for MemStorageHandle {
         Ok(())
     }
 
-    async fn get_prev_events(&self, room_id: &str) -> Result<(Vec<String>, i64), Error> {
+    async fn get_prev_events(&self, room_id: &RoomId) -> Result<(Vec<String>, i64), Error> {
         let db = self.inner.read().await;
         let room = db.rooms.get(room_id).ok_or(ErrorKind::RoomNotFound)?;
         let mut prev_events = room.events.clone();
@@ -304,12 +304,12 @@ impl Storage for MemStorageHandle {
         Ok((ret, to.unwrap()))
     }
 
-    async fn get_rooms(&self) -> Result<Vec<String>, Error> {
+    async fn get_rooms(&self) -> Result<Vec<RoomId>, Error> {
         let db = self.inner.read().await;
         Ok(db.rooms.keys().cloned().collect())
     }
 
-    async fn get_pdu(&self, room_id: &str, event_id: &str) -> Result<Option<StoredPdu>, Error> {
+    async fn get_pdu(&self, room_id: &RoomId, event_id: &str) -> Result<Option<StoredPdu>, Error> {
         let db = self.inner.read().await;
         let event = db
             .rooms
@@ -319,7 +319,10 @@ impl Storage for MemStorageHandle {
         Ok(event)
     }
 
-    async fn get_all_ephemeral(&self, room_id: &str) -> Result<HashMap<String, JsonValue>, Error> {
+    async fn get_all_ephemeral(
+        &self,
+        room_id: &RoomId,
+    ) -> Result<HashMap<String, JsonValue>, Error> {
         let db = self.inner.read().await;
         let room = db.rooms.get(room_id).ok_or(ErrorKind::RoomNotFound)?;
         let mut ephemeral = room.ephemeral.clone();
@@ -338,7 +341,7 @@ impl Storage for MemStorageHandle {
 
     async fn get_ephemeral(
         &self,
-        room_id: &str,
+        room_id: &RoomId,
         event_type: &str,
     ) -> Result<Option<JsonValue>, Error> {
         let db = self.inner.read().await;
@@ -356,7 +359,7 @@ impl Storage for MemStorageHandle {
 
     async fn set_ephemeral(
         &self,
-        room_id: &str,
+        room_id: &RoomId,
         event_type: &str,
         content: Option<JsonValue>,
     ) -> Result<(), Error> {
@@ -376,7 +379,7 @@ impl Storage for MemStorageHandle {
 
     async fn set_typing(
         &self,
-        room_id: &str,
+        room_id: &RoomId,
         user_id: &MatrixId,
         is_typing: bool,
         timeout: u32,

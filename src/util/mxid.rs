@@ -45,11 +45,6 @@ impl<const PREFIX: char> Id<PREFIX> {
         // Safety: We just checked the precondition
         Ok(unsafe { Self::new_unchecked(localpart.to_owned(), domain) })
     }
-    pub fn new_with_random_local(domain: Domain) -> Result<Self, MxidError> {
-        let local = "random-username-implement-me";
-        // Safety: Local will always be valid, domain was just checked
-        Ok(unsafe { Self::new_unchecked(local.to_owned(), domain) })
-    }
 
     pub fn localpart(&self) -> &str {
         &self.localpart
@@ -62,24 +57,29 @@ impl<const PREFIX: char> Id<PREFIX> {
     ///
     /// Includes prefix and seperators
     fn str_len(&self) -> usize {
-        self.domain.as_str().len() + self.localpart.len() + 2
+        self.domain.as_str().len() + self.localpart.len() + 1 + PREFIX.len_utf8()
+    }
+    pub fn is_matrix_id() -> bool {
+        PREFIX == '@'
     }
 
     /// Verifies that a localpart and domain could together form a valid Matrix ID.
     pub fn validate_parts(localpart: &str, domain: &Domain) -> Result<(), MxidError> {
-        if localpart.contains(|c: char| {
-            !c.is_ascii_lowercase()
-                && !c.is_ascii_digit()
-                && c != '-'
-                && c != '_'
-                && c != '.'
-                && c != '='
-                && c != '/'
-        }) {
+        if Self::is_matrix_id()
+            && localpart.contains(|c: char| {
+                !c.is_ascii_lowercase()
+                    && !c.is_ascii_digit()
+                    && c != '-'
+                    && c != '_'
+                    && c != '.'
+                    && c != '='
+                    && c != '/'
+            })
+        {
             return Err(MxidError::InvalidChar);
         }
 
-        if localpart.len() + domain.as_str().len() + 2 > 255 {
+        if localpart.len() + domain.as_str().len() + 1 + PREFIX.len_utf8() > 255 {
             return Err(MxidError::TooLong);
         }
 
@@ -109,7 +109,28 @@ impl<const PREFIX: char> Id<PREFIX> {
 
         Ok((domain, localpart))
     }
+    fn new_len_checked(local: String, domain: Domain) -> Result<Self, MxidError> {
+        if domain.as_str().len() + 2 + local.len() > 255 {
+            Err(MxidError::TooLong)
+        } else {
+            // Safety: We just checked the requirements
+            Ok(unsafe { Self::new_unchecked(local, domain) })
+        }
+    }
 }
+impl Id<'@'> {
+    pub fn new_with_random_local(domain: Domain) -> Result<Self, MxidError> {
+        let local = "todo-impl-me";
+        Self::new_len_checked(local.to_owned(), domain)
+    }
+}
+impl Id<'!'> {
+    pub fn new_with_random_local(domain: Domain) -> Result<Self, MxidError> {
+        let local = format!("{:016X}", rand::random::<i64>());
+        Self::new_len_checked(local, domain)
+    }
+}
+
 impl<const P: char> std::fmt::Display for Id<P> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
@@ -166,7 +187,11 @@ mod tests {
 
     use crate::{
         assert_err, assert_ok,
-        util::{domain::Domain, mxid::Id, MatrixId},
+        util::{
+            domain::Domain,
+            mxid::{Id, RoomId},
+            MatrixId,
+        },
     };
 
     #[test]
@@ -208,5 +233,16 @@ mod tests {
         let id = MatrixId::new("a", "b".parse().unwrap()).unwrap();
         assert_eq!(id, "@a:b");
         assert_ne!(id, "@ab", "id's do not match invalid strings");
+    }
+
+    #[test]
+    fn room_id_can_be_parsed_from_prefix_exclamation() {
+        let id = RoomId::from_str("!a:b");
+        assert_ok!(id);
+    }
+    #[test]
+    fn random_room_id_is_valid() {
+        let id = RoomId::new_with_random_local("b".parse().unwrap()).unwrap();
+        assert_ok!(RoomId::from_str(&id.to_string()));
     }
 }

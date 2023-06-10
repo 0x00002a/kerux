@@ -19,6 +19,7 @@ use crate::{
         EventContent, EventType,
     },
     storage::Storage,
+    util::mxid::RoomId,
     validate::auth::AuthStatus,
 };
 
@@ -27,7 +28,7 @@ use super::StorageExt;
 /// (event_type, state_key) -> event_id
 #[derive(Clone)]
 pub struct State {
-    room_id: String,
+    room_id: RoomId,
     map: HashMap<(Cow<'static, str>, Cow<'static, str>), String>,
 }
 
@@ -93,13 +94,13 @@ impl StateResolver {
         }
     }
 
-    pub async fn resolve(&self, room_id: &str, events: &[String]) -> Result<State, Error> {
+    pub async fn resolve(&self, room_id: &RoomId, events: &[String]) -> Result<State, Error> {
         self.resolve_v2(room_id, events).await
     }
 
     #[tracing::instrument(level = tracing::Level::DEBUG, skip(self))]
     #[async_recursion::async_recursion]
-    pub async fn resolve_v2(&self, room_id: &str, events: &[String]) -> Result<State, Error> {
+    pub async fn resolve_v2(&self, room_id: &RoomId, events: &[String]) -> Result<State, Error> {
         if events.is_empty() {
             return Ok(State {
                 room_id: room_id.to_owned(),
@@ -326,7 +327,7 @@ impl StateResolver {
 
     async fn auth_chains(
         &self,
-        room_id: &str,
+        room_id: &RoomId,
         event_ids: &[String],
     ) -> Result<HashSet<String>, Error> {
         let mut ret = HashSet::new();
@@ -352,7 +353,7 @@ impl StateResolver {
 
     async fn auth_difference(
         &self,
-        room_id: &str,
+        room_id: &RoomId,
         event_ids: &[String],
     ) -> Result<HashSet<String>, Error> {
         assert_ne!(event_ids.len(), 0);
@@ -378,7 +379,7 @@ impl StateResolver {
 
     async fn reverse_topological_power_ordering(
         &self,
-        room_id: &str,
+        room_id: &RoomId,
         event_ids: HashSet<String>,
     ) -> Result<Vec<String>, Error> {
         let mut events = HashMap::new();
@@ -557,14 +558,14 @@ mod tests {
             EventContent,
         },
         storage::{Storage, StorageManager},
-        util::{storage::NewEvent, MatrixId},
+        util::{mxid::RoomId, storage::NewEvent, MatrixId},
     };
 
     use super::StateResolver;
 
     struct TestRoom<'db> {
         db: &'db dyn Storage,
-        room_id: String,
+        room_id: RoomId,
         /// depth -> list of events at that depth
         depth_map: Vec<Vec<String>>,
     }
@@ -573,7 +574,7 @@ mod tests {
         /// must only be called once per test, because it uses the same room id every time
         async fn create<'db>(
             db: &'db dyn Storage,
-            room_id: &str,
+            room_id: &RoomId,
             creator: &MatrixId,
         ) -> Result<TestRoom<'db>, Error> {
             let creation = UnhashedPdu {
@@ -583,7 +584,7 @@ mod tests {
                     predecessor: None,
                     extra: HashMap::new(),
                 }),
-                room_id: String::from(room_id),
+                room_id: room_id.to_owned(),
                 sender: creator.clone(),
                 state_key: Some(String::new()),
                 unsigned: None,
@@ -682,8 +683,8 @@ mod tests {
         let resolver = StateResolver::new(storage_manager.get_handle().await?);
 
         let alice = MatrixId::new("alice", "example.org".parse().unwrap()).unwrap();
-        let room_id = "!linear:example.org";
-        let mut room = TestRoom::create(&*db, room_id, &alice).await?;
+        let room_id = "!linear:example.org".parse().unwrap();
+        let mut room = TestRoom::create(&*db, &room_id, &alice).await?;
         let _alice_join = room
             .add(
                 1,
@@ -710,7 +711,7 @@ mod tests {
             )
             .await?;
 
-        let state1 = resolver.resolve(room_id, &[name1.clone()]).await?;
+        let state1 = resolver.resolve(&room_id, &[name1.clone()]).await?;
         assert_eq!(
             state1
                 .get_content::<Name>(&*db, "")
@@ -732,7 +733,7 @@ mod tests {
                 &resolver,
             )
             .await?;
-        let state2 = resolver.resolve(room_id, &[name2]).await?;
+        let state2 = resolver.resolve(&room_id, &[name2]).await?;
         assert_eq!(
             state2
                 .get_content::<Name>(&*db, "")
@@ -742,7 +743,7 @@ mod tests {
                 .as_deref(),
             Some("two")
         );
-        let state1 = resolver.resolve(room_id, &[name1]).await?;
+        let state1 = resolver.resolve(&room_id, &[name1]).await?;
         assert_eq!(
             state1
                 .get_content::<Name>(&*db, "")

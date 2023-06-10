@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
-use crate::util::MatrixId;
+use crate::util::{mxid::RoomId, MatrixId};
 
 use super::{room_version::v4::PduV4, Event, EventContent};
 
@@ -21,7 +21,7 @@ impl VersionedPdu {
         }
     }
 
-    pub fn room_id(&self) -> &str {
+    pub fn room_id(&self) -> &RoomId {
         match self {
             VersionedPdu::V4(pdu) => &pdu.room_id,
         }

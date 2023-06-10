@@ -1,7 +1,11 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
-use crate::{events::EventContent, util::MatrixId, validate::auth::AuthStatus};
+use crate::{
+    events::EventContent,
+    util::{mxid::RoomId, MatrixId},
+    validate::auth::AuthStatus,
+};
 
 use super::{room_version::VersionedPdu, Event};
 
@@ -28,7 +32,7 @@ impl StoredPdu {
         self.inner.event_content()
     }
 
-    pub fn room_id(&self) -> &str {
+    pub fn room_id(&self) -> &RoomId {
         self.inner.room_id()
     }
 

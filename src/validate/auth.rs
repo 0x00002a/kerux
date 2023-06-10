@@ -41,12 +41,7 @@ pub async fn auth_check_v1(
         if !pdu.prev_events().is_empty() {
             return Ok(Fail);
         }
-        let room_id_domain: Domain = pdu
-            .room_id()
-            .split_once(':')
-            .and_then(|(_, d)| d.parse().ok())
-            .expect("invalid room id");
-        if pdu.sender().domain() != &room_id_domain {
+        if pdu.sender().domain() != pdu.room_id().domain() {
             return Ok(Fail);
         }
         // cant check room version if v4 is embedded in the type system lmao
