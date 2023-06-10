@@ -5,12 +5,19 @@ use std::{convert::TryFrom, str::FromStr};
 
 use super::domain::Domain;
 
+/// Generic type for a matrix idenifier
+///
+/// See `MatrixId` and `RoomId`
 #[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq)]
 #[serde(try_from = "String")]
-pub struct MatrixId {
+pub struct Id<const PREFIX: char> {
     domain: Domain,
     localpart: String,
 }
+/// Identifier for a user
+pub type MatrixId = Id<'@'>;
+/// Identifier for a room
+pub type RoomId = Id<'!'>;
 
 #[derive(Debug, Display)]
 pub enum MxidError {
@@ -18,20 +25,20 @@ pub enum MxidError {
     TooLong,
     /// A Matrix ID can only have lowercase letters, numbers, and `-_.=/`.
     InvalidChar,
-    /// A Matrix ID must begin with an '@'.
-    NoLeadingAt,
+    /// An ID must begin {0}
+    NoLeadingChar(char),
     /// A Matrix ID must contain exactly one colon.
     WrongNumberOfColons,
     /// A Matrix ID must contain a valid domain name.
     InvalidDomain,
 }
 
-impl MatrixId {
+impl<const PREFIX: char> Id<PREFIX> {
     ///
     ///
     /// Unsafe because it doesn't validate localpart or domain
     unsafe fn new_unchecked(localpart: String, domain: Domain) -> Self {
-        MatrixId { domain, localpart }
+        Self { domain, localpart }
     }
     pub fn new(localpart: &str, domain: Domain) -> Result<Self, MxidError> {
         Self::validate_parts(localpart, &domain)?;
@@ -75,8 +82,8 @@ impl MatrixId {
 
     /// Verifies that a `&str` forms a valid Matrix ID.
     pub fn validate_all(mxid: &str) -> Result<(Domain, &str), MxidError> {
-        if !mxid.starts_with('@') {
-            return Err(MxidError::NoLeadingAt);
+        if !mxid.starts_with(PREFIX) {
+            return Err(MxidError::NoLeadingChar(PREFIX));
         }
         let remaining: &str = &mxid[1..];
         let (localpart, domain) = {
@@ -97,25 +104,25 @@ impl MatrixId {
         Ok((domain, localpart))
     }
 }
-impl std::fmt::Display for MatrixId {
+impl<const P: char> std::fmt::Display for Id<P> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
-            "@{local}:{domain}",
+            "{P}{local}:{domain}",
             domain = self.domain,
             local = self.localpart
         ))
     }
 }
 
-impl FromStr for MatrixId {
+impl<const P: char> FromStr for Id<P> {
     type Err = MxidError;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        let (domain, localpart) = MatrixId::validate_all(value)?;
+        let (domain, localpart) = Self::validate_all(value)?;
         Ok(unsafe { Self::new_unchecked(localpart.to_owned(), domain) })
     }
 }
-impl TryFrom<&str> for MatrixId {
+impl<const P: char> TryFrom<&str> for Id<P> {
     type Error = MxidError;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
@@ -123,14 +130,14 @@ impl TryFrom<&str> for MatrixId {
     }
 }
 
-impl TryFrom<String> for MatrixId {
+impl<const P: char> TryFrom<String> for Id<P> {
     type Error = MxidError;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         value.parse()
     }
 }
-impl Serialize for MatrixId {
+impl<const P: char> Serialize for Id<P> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -142,7 +149,10 @@ impl Serialize for MatrixId {
 mod tests {
     use std::str::FromStr;
 
-    use crate::util::{domain::Domain, MatrixId};
+    use crate::{
+        assert_err, assert_ok,
+        util::{domain::Domain, mxid::Id, MatrixId},
+    };
 
     #[test]
     fn matrix_id_serializes_correctly() {
@@ -160,5 +170,21 @@ mod tests {
         let id = MatrixId::from_str("@name:test:8000").unwrap();
         assert_eq!(id.localpart(), "name");
         assert_eq!(id.domain().as_str(), "test:8000");
+    }
+    #[test]
+    fn id_requires_first_character_to_match_prefix() {
+        let rs = Id::<'a'>::from_str("aname:test");
+        assert_ok!(rs);
+        let rs = Id::<'a'>::from_str("bname:test");
+        assert_err!(rs);
+    }
+
+    #[test]
+    fn id_prints_prefix_as_first_char_with_display() {
+        let id = Id::<'a'> {
+            domain: Domain::new("test".to_owned()).unwrap(),
+            localpart: "hello".to_owned(),
+        };
+        assert!(id.to_string().starts_with('a'));
     }
 }

@@ -13,6 +13,8 @@ use crate::ServerState;
 pub mod domain;
 pub mod mxid;
 pub mod storage;
+#[cfg(test)]
+pub mod test;
 
 pub use mxid::{MatrixId, MxidError};
 pub use storage::StorageExt;
