@@ -49,6 +49,22 @@ pub struct EventQuery<'a> {
     /// Only return results whose content fields have identical values to those in here.
     pub contains_json: Option<JsonValue>,
 }
+pub struct EventQueryResult<E> {
+    /// End of the timeline for `events`
+    ///
+    /// Will be the index of the next event after the last event in `events`
+    pub timeline_end: usize,
+    /// The events returned for this query
+    pub events: Vec<E>,
+}
+impl<E> EventQueryResult<E> {
+    pub fn map<T>(self, f: impl FnMut(E) -> T) -> EventQueryResult<T> {
+        EventQueryResult {
+            timeline_end: self.timeline_end,
+            events: self.events.into_iter().map(f).collect(),
+        }
+    }
+}
 
 #[derive(Clone)]
 pub enum QueryType<'a> {
@@ -189,20 +205,15 @@ pub trait Storage: Send + Sync {
         &self,
         query: EventQuery<'a>,
         wait: bool,
-    ) -> Result<(Vec<StoredPdu>, usize), Error>;
+    ) -> Result<EventQueryResult<StoredPdu>, Error>;
 
     async fn query_events<'a>(
         &self,
         query: EventQuery<'a>,
         wait: bool,
-    ) -> Result<(Vec<Event>, usize), Error> {
-        let (pdus, next_batch) = self.query_pdus(query, wait).await?;
-        return Ok((
-            pdus.into_iter()
-                .map(StoredPdu::into_client_format)
-                .collect(),
-            next_batch,
-        ));
+    ) -> Result<EventQueryResult<Event>, Error> {
+        let res = self.query_pdus(query, wait).await?;
+        Ok(res.map(StoredPdu::into_client_format))
     }
 
     async fn get_rooms(&self) -> Result<Vec<RoomId>, Error>;
@@ -230,7 +241,7 @@ pub trait Storage: Send + Sync {
                 false,
             )
             .await?
-            .0
+            .events
             .pop();
         let membership = event.map(|e| {
             extract!(EventContent::Member(_), e.event_content)
@@ -264,14 +275,14 @@ pub trait Storage: Send + Sync {
             "membership": "invite"
         }));
 
-        let join_count = self.query_events(join_query, false).await?.0.len();
-        let invited_count = self.query_events(invited_query, false).await?.0.len();
+        let join_count = self.query_events(join_query, false).await?.events.len();
+        let invited_count = self.query_events(invited_query, false).await?.events.len();
 
         Ok((join_count, invited_count))
     }
 
     async fn get_full_state(&self, room_id: &RoomId) -> Result<Vec<Event>, Error> {
-        let (ret, _) = self
+        let ret = self
             .query_events(
                 EventQuery {
                     query_type: QueryType::State {
@@ -288,7 +299,8 @@ pub trait Storage: Send + Sync {
                 },
                 false,
             )
-            .await?;
+            .await?
+            .events;
         Ok(ret)
     }
 
@@ -316,7 +328,7 @@ pub trait Storage: Send + Sync {
                 false,
             )
             .await?
-            .0
+            .events
             .pop();
         Ok(ret)
     }

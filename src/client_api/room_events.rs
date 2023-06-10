@@ -13,7 +13,7 @@ use crate::{
     client_api::auth::AccessToken,
     error::{Error, ErrorKind},
     events::{room::Membership, Event, EventContent},
-    storage::{EventQuery, QueryType},
+    storage::{EventQuery, EventQueryResult, QueryType},
     util::{mxid::RoomId, storage::NewEvent, MatrixId, StorageExt},
     ServerState,
 };
@@ -196,7 +196,7 @@ pub async fn messages(
         types: &[],
         not_types: &[],
     };
-    let (mut events, _) = db.query_events(query, false).await?;
+    let mut events = db.query_events(query, false).await?.events;
     let start = events
         .first()
         .map(|e| e.state_key.as_deref().unwrap_or("empty"))
@@ -252,7 +252,10 @@ pub async fn sync(
             Membership::Join => {
                 batch.invites.remove(room_id);
                 let from = batch.rooms.get(room_id).copied().unwrap_or(0);
-                let (events, progress) = db
+                let EventQueryResult {
+                    events,
+                    timeline_end,
+                } = db
                     .query_events(
                         EventQuery {
                             query_type: QueryType::Timeline { from, to: None },
@@ -266,7 +269,7 @@ pub async fn sync(
                         false,
                     )
                     .await?;
-                batch.rooms.insert(room_id.clone(), progress + 1);
+                batch.rooms.insert(room_id.clone(), timeline_end);
 
                 let mut state_events = Vec::new();
                 if req.full_state {
@@ -374,14 +377,14 @@ pub async fn sync(
             return Ok(Json(res));
         },
         ((query_res, room_id), _, _) = futures::future::select_all(queries) => {
-            let (events, progress) = query_res?;
+            let EventQueryResult { timeline_end, events } = query_res?;
             let (joined, invited) = db.get_room_member_counts(&room_id).await?;
             let summary = RoomSummary {
                 heroes: None,
                 joined_member_count: joined,
                 invited_member_count: invited,
             };
-            batch.rooms.insert(room_id.clone(), progress + 1);
+            batch.rooms.insert(room_id.clone(), timeline_end);
             res.rooms.join.insert(
                 room_id.clone(),
                 JoinedRoom {

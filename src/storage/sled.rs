@@ -23,7 +23,7 @@ use crate::{
     util::{mxid::RoomId, MatrixId},
 };
 
-use super::{Batch, EventQuery, QueryType, UserProfile};
+use super::{Batch, EventQuery, EventQueryResult, QueryType, UserProfile};
 
 trait TreeExt {
     type Error;
@@ -234,9 +234,15 @@ impl SledStorageHandle {
         query: &EventQuery<'_>,
         from: usize,
         to: Option<usize>,
-    ) -> Result<(Vec<StoredPdu>, usize), Error> {
+    ) -> Result<EventQueryResult<StoredPdu>, Error> {
         let mut ret = Vec::new();
 
+        if ordering_tree.len() <= from {
+            return Ok(EventQueryResult {
+                timeline_end: ordering_tree.len(),
+                events: vec![],
+            });
+        }
         let from_bytes = from.to_be_bytes();
         let to_bytes = to.map(usize::to_be_bytes);
         let pdu_iter = match to_bytes {
@@ -265,7 +271,10 @@ impl SledStorageHandle {
             }
             end += 1;
         }
-        Ok((ret, end + from))
+        Ok(EventQueryResult {
+            events: ret,
+            timeline_end: end + from,
+        })
     }
 }
 fn deserialize<'a, T: Deserialize<'a>>(bytes: &'a [u8]) -> Result<T, Error> {
@@ -448,7 +457,7 @@ impl Storage for SledStorageHandle {
         &self,
         query: EventQuery<'a>,
         wait: bool,
-    ) -> Result<(Vec<StoredPdu>, usize), Error> {
+    ) -> Result<EventQueryResult<StoredPdu>, Error> {
         let ordering_tree = self.get_room_ordering_tree(query.room_id).await?;
         if ordering_tree.is_empty() {
             return Err(ErrorKind::RoomNotFound.into());
@@ -462,7 +471,7 @@ impl Storage for SledStorageHandle {
         let res = self.get_events(&ordering_tree, &query, from, to).await?;
 
         // if we don't need to wait, return asap
-        if !(wait && res.0.is_empty() && query.query_type.is_timeline()) {
+        if !(wait && res.events.is_empty() && query.query_type.is_timeline()) {
             return Ok(res);
         }
 
@@ -588,7 +597,7 @@ impl Storage for SledStorageHandle {
             .get_value(username)?
             .ok_or(ErrorKind::UserNotFound)?;
         user.account_data = data;
-        self.users.overwrite_value(username, user);
+        self.users.overwrite_value(username, user)?;
         Ok(())
     }
 

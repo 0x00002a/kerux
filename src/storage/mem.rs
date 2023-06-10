@@ -18,6 +18,8 @@ use crate::{
     util::{mxid::RoomId, MatrixId},
 };
 
+use super::EventQueryResult;
+
 struct MemStorage {
     rooms: HashMap<RoomId, Room>,
     users: Vec<User>,
@@ -238,7 +240,7 @@ impl Storage for MemStorageHandle {
         &self,
         query: EventQuery<'a>,
         wait: bool,
-    ) -> Result<(Vec<StoredPdu>, usize), Error> {
+    ) -> Result<EventQueryResult<StoredPdu>, Error> {
         let mut ret = Vec::new();
         let (mut from, mut to) = match query.query_type {
             QueryType::Timeline { from, to } => (from, to),
@@ -272,7 +274,10 @@ impl Storage for MemStorageHandle {
             from = to.unwrap();
             to = None;
         } else {
-            return Ok((ret, to.unwrap()));
+            return Ok(EventQueryResult {
+                events: ret,
+                timeline_end: to.unwrap(),
+            });
         }
 
         // same again
@@ -301,7 +306,10 @@ impl Storage for MemStorageHandle {
             ret.reverse();
         }
 
-        Ok((ret, to.unwrap()))
+        Ok(EventQueryResult {
+            events: ret,
+            timeline_end: to.unwrap(),
+        })
     }
 
     async fn get_rooms(&self) -> Result<Vec<RoomId>, Error> {
