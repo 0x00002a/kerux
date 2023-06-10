@@ -268,7 +268,7 @@ impl SledStorageHandle {
             }
             end += 1;
         }
-        Ok((ret, end))
+        Ok((ret, end + from))
     }
 }
 fn deserialize<'a, T: Deserialize<'a>>(bytes: &'a [u8]) -> Result<T, Error> {
