@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
-use crate::util::{mxid::RoomId, MatrixId};
+use crate::util::{domain::Domain, mxid::RoomId, MatrixId};
 
 use super::{room_version::v4::PduV4, Event, EventContent};
 
@@ -51,7 +51,7 @@ impl VersionedPdu {
         }
     }
 
-    pub fn origin(&self) -> &str {
+    pub fn origin(&self) -> &Domain {
         match self {
             VersionedPdu::V4(pdu) => &pdu.origin,
         }

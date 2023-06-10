@@ -103,7 +103,7 @@ pub async fn create_room(
         state_key: Some(String::new()),
         unsigned: None,
         redacts: None,
-        origin: state.config.domain.to_string(),
+        origin: state.config.domain.clone(),
         origin_server_ts: chrono::Utc::now().timestamp_millis(),
         prev_events: Vec::new(),
         depth: 0,

@@ -106,7 +106,7 @@ impl<'a> StorageExt for dyn Storage + 'a {
             state_key: event.state_key,
             unsigned: event.unsigned,
             redacts: event.redacts,
-            origin: origin.to_string(),
+            origin,
             origin_server_ts: chrono::Utc::now().timestamp_millis(),
             prev_events,
             depth: max_depth.saturating_add(1),

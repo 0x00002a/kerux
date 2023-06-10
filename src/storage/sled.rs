@@ -628,7 +628,7 @@ mod tests {
             state_key: Some(String::new()),
             unsigned: None,
             redacts: None,
-            origin: domain.to_string(),
+            origin: domain,
             origin_server_ts: chrono::Utc::now().timestamp_millis(),
             prev_events: Vec::new(),
             depth: 0,

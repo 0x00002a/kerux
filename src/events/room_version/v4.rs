@@ -5,7 +5,7 @@ use serde_json::{Map, Value as JsonValue};
 
 use crate::{
     events::{Event, EventContent},
-    util::{mxid::RoomId, MatrixId},
+    util::{domain::Domain, mxid::RoomId, MatrixId},
 };
 
 /// An unhashed (incomplete) Persistent Data Unit for room version 4.
@@ -24,7 +24,7 @@ pub struct UnhashedPdu {
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub redacts: Option<String>,
-    pub origin: String,
+    pub origin: Domain,
     pub origin_server_ts: i64,
     pub prev_events: Vec<String>,
     pub depth: i64,
@@ -47,7 +47,7 @@ pub struct PduV4 {
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub redacts: Option<String>,
-    pub origin: String,
+    pub origin: Domain,
     pub origin_server_ts: i64,
     pub prev_events: Vec<String>,
     pub depth: i64,

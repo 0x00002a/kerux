@@ -3,7 +3,7 @@ use serde_json::Value as JsonValue;
 
 use crate::{
     events::EventContent,
-    util::{mxid::RoomId, MatrixId},
+    util::{domain::Domain, mxid::RoomId, MatrixId},
     validate::auth::AuthStatus,
 };
 
@@ -52,7 +52,7 @@ impl StoredPdu {
         self.inner.redacts()
     }
 
-    pub fn origin(&self) -> &str {
+    pub fn origin(&self) -> &Domain {
         self.inner.origin()
     }
 
