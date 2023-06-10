@@ -463,7 +463,7 @@ impl Storage for SledStorageHandle {
             return Err(ErrorKind::RoomNotFound.into());
         }
 
-        let (mut from, mut to) = match query.query_type {
+        let (from, to) = match query.query_type {
             QueryType::Timeline { from, to } => (from, to),
             QueryType::State { at, .. } => (0, at),
         };
@@ -476,11 +476,12 @@ impl Storage for SledStorageHandle {
         }
 
         self.events.watch_prefix(query.room_id.to_string()).await;
-        from = to.unwrap();
-        to = None;
-
-        // this time we roll with it
-        self.get_events(&ordering_tree, &query, from, to).await
+        if let Some(from) = to {
+            // this time we roll with it
+            self.get_events(&ordering_tree, &query, from, None).await
+        } else {
+            Ok(res)
+        }
     }
 
     async fn get_rooms(&self) -> Result<Vec<RoomId>, Error> {
