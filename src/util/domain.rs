@@ -10,7 +10,7 @@ lazy_static! {
 
 /// Matrix server domain
 #[repr(transparent)]
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Hash)]
 #[serde(try_from = "String")]
 pub struct Domain {
     url: String,
@@ -44,6 +44,14 @@ impl std::fmt::Display for InvalidDomainError {
         f.write_str("invalid domain string")
     }
 }
+impl Serialize for Domain {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.as_str().serialize(serializer)
+    }
+}
 
 impl TryFrom<String> for Domain {
     type Error = InvalidDomainError;
@@ -65,6 +73,8 @@ impl FromStr for Domain {
 }
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use crate::util::domain::Domain;
 
     fn check_parse(domain: &str) {
@@ -73,6 +83,14 @@ mod tests {
             Ok(Domain {
                 url: domain.to_owned()
             })
+        );
+    }
+
+    #[test]
+    fn domain_serializes_like_a_string() {
+        assert_eq!(
+            serde_json::to_value(Domain::from_str("hello").unwrap()).unwrap(),
+            serde_json::json!("hello")
         );
     }
 
