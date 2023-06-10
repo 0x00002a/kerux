@@ -58,6 +58,12 @@ impl<const PREFIX: char> Id<PREFIX> {
     pub fn domain(&self) -> &Domain {
         &self.domain
     }
+    /// Length when displayed as a string
+    ///
+    /// Includes prefix and seperators
+    fn str_len(&self) -> usize {
+        self.domain.as_str().len() + self.localpart.len() + 2
+    }
 
     /// Verifies that a localpart and domain could together form a valid Matrix ID.
     pub fn validate_parts(localpart: &str, domain: &Domain) -> Result<(), MxidError> {
@@ -145,6 +151,15 @@ impl<const P: char> Serialize for Id<P> {
         self.to_string().serialize(serializer)
     }
 }
+impl<const P: char> PartialEq<&str> for Id<P> {
+    fn eq(&self, other: &&str) -> bool {
+        if other.len() != self.str_len() || !other.starts_with(P) {
+            return false;
+        }
+        let Some((local, domain)) = other.split_once(':') else { return false };
+        self.localpart == local[1..] && self.domain.as_str() == domain
+    }
+}
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
@@ -186,5 +201,12 @@ mod tests {
             localpart: "hello".to_owned(),
         };
         assert!(id.to_string().starts_with('a'));
+    }
+
+    #[test]
+    fn id_can_be_compared_to_a_string() {
+        let id = MatrixId::new("a", "b".parse().unwrap()).unwrap();
+        assert_eq!(id, "@a:b");
+        assert_ne!(id, "@ab", "id's do not match invalid strings");
     }
 }
