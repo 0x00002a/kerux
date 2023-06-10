@@ -327,6 +327,21 @@ impl Storage for MemStorageHandle {
         Ok(event)
     }
 
+    async fn update_pdu(&self, pdu: StoredPdu) -> Result<(), Error> {
+        let mut db = self.inner.write().await;
+        let events = &mut db
+            .rooms
+            .get_mut(pdu.room_id())
+            .ok_or(ErrorKind::RoomNotFound)?
+            .events;
+        let pos = events
+            .iter()
+            .position(|ev| ev.event_id() == pdu.event_id())
+            .ok_or(ErrorKind::EventNotFound)?;
+        events[pos] = pdu;
+        Ok(())
+    }
+
     async fn get_all_ephemeral(
         &self,
         room_id: &RoomId,

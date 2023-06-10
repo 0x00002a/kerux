@@ -335,6 +335,8 @@ pub trait Storage: Send + Sync {
 
     async fn get_pdu(&self, room_id: &RoomId, event_id: &str) -> Result<Option<StoredPdu>, Error>;
 
+    async fn update_pdu(&self, pdu: StoredPdu) -> Result<(), Error>;
+
     async fn get_all_ephemeral(
         &self,
         room_id: &RoomId,

@@ -80,6 +80,8 @@ pub enum ErrorKind {
     Unknown(String),
     /// An mxid error occured: {0}
     Mxid(mxid::MxidError),
+    /// Event with that ID not found
+    EventNotFound,
 }
 
 impl ResponseError for Error {
@@ -96,7 +98,8 @@ impl ResponseError for Error {
             | UrlNotUtf8(_)
             | PasswordError(_)
             | Unknown(_)
-            | TxnIdExists => StatusCode::BAD_REQUEST,
+            | TxnIdExists
+            | EventNotFound => StatusCode::BAD_REQUEST,
             LimitExceeded => StatusCode::TOO_MANY_REQUESTS,
             AddEventError(_) | Mxid(_) => StatusCode::INTERNAL_SERVER_ERROR,
             #[cfg(feature = "storage-sled")]
@@ -112,7 +115,7 @@ impl ResponseError for Error {
             MissingToken => "M_MISSING_TOKEN",
             BadJson(_) => "M_BAD_JSON",
             NotJson(_) => "M_NOT_JSON",
-            NotFound | UserNotFound | RoomNotFound => "M_NOT_FOUND",
+            NotFound | UserNotFound | RoomNotFound | EventNotFound => "M_NOT_FOUND",
             UsernameTaken => "M_USER_IN_USE",
             LimitExceeded => "M_LIMIT_EXCEEDED",
             MissingParam(_) => "M_MISSING_PARAM",

@@ -211,6 +211,9 @@ pub struct SledStorageHandle {
     headless_events: Tree,
     ephemeral: Arc<Mutex<HashMap<RoomId, Ephemeral>>>,
 }
+fn calc_event_key(room_id: &RoomId, event_id: &str) -> String {
+    format!("{}_{}", room_id, event_id)
+}
 
 impl SledStorageHandle {
     /// Gets the event ordering information for a room
@@ -499,8 +502,14 @@ impl Storage for SledStorageHandle {
 
     async fn get_pdu(&self, room_id: &RoomId, event_id: &str) -> Result<Option<StoredPdu>, Error> {
         self.events
-            .get_value(format!("{}_{}", room_id, event_id))
+            .get_value(calc_event_key(room_id, event_id))
             .map_err(Into::into)
+    }
+
+    async fn update_pdu(&self, pdu: StoredPdu) -> Result<(), Error> {
+        self.events
+            .overwrite_value(calc_event_key(pdu.room_id(), &pdu.event_id()), pdu)?;
+        Ok(())
     }
 
     async fn get_all_ephemeral(

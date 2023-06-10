@@ -342,7 +342,7 @@ impl ToString for Membership {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Redaction {
     #[serde(skip_serializing_if = "Option::is_none")]
-    reason: Option<String>,
+    pub reason: Option<String>,
 }
 
 impl Redactable for Redaction {

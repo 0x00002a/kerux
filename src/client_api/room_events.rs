@@ -12,7 +12,10 @@ use tracing::{field::Empty, instrument, Span};
 use crate::{
     client_api::auth::AccessToken,
     error::{Error, ErrorKind},
-    events::{room::Membership, Event, EventContent},
+    events::{
+        room::{self, Membership},
+        Event, EventContent,
+    },
     storage::{EventQuery, EventQueryResult, QueryType},
     util::{mxid::RoomId, storage::NewEvent, MatrixId, StorageExt},
     ServerState,
@@ -621,4 +624,46 @@ pub async fn send_event(
     tracing::trace!(event_id = &event_id.as_str(), "Added event");
 
     Ok(Json(SendEventResponse { event_id }))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RedactRequest {
+    reason: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct RedactResponse {
+    event_id: String,
+}
+
+#[put("/rooms/{room_id}/redact/{event_id}/{transaction_id}")]
+pub async fn redact(
+    state: Data<Arc<ServerState>>,
+    params: Path<(RoomId, String, String)>,
+    token: AccessToken,
+    req: Json<RedactRequest>,
+) -> Result<Json<RedactResponse>, Error> {
+    let (room_id, redacted, _transaction_id) = params.into_inner();
+    let db = state.db_pool.get_handle().await?;
+    let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
+    Span::current().record("username", username.as_str());
+    let user_id = MatrixId::new(&username, state.config.domain.clone())?;
+    let to_redact = db
+        .get_pdu(&room_id, &redacted)
+        .await?
+        .ok_or_else(|| ErrorKind::InvalidParam("event to redact does not exist".to_owned()))?;
+    let ev = NewEvent {
+        event_content: EventContent::Redaction(room::Redaction {
+            reason: req.reason.as_ref().cloned(),
+        }),
+        sender: user_id,
+        state_key: None,
+        redacts: Some(redacted),
+        unsigned: None,
+    };
+    let redact_id = db.add_event(&room_id, ev, &state.state_resolver).await?;
+    db.update_pdu(to_redact.redact()).await?;
+    Ok(Json(RedactResponse {
+        event_id: redact_id,
+    }))
 }
