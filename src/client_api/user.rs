@@ -279,3 +279,34 @@ pub async fn status(
         .await?;
     Ok(Json(json!({})))
 }
+
+#[get("/user/{user_id}/account_data/{type}")]
+pub async fn account_data(
+    state: Data<Arc<ServerState>>,
+    path: Path<(MatrixId, String)>,
+    token: AccessToken,
+) -> Result<Json<serde_json::Value>, Error> {
+    let (_, data_type) = path.into_inner();
+    let db = state.db_pool.get_handle().await?;
+    let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
+    Span::current().record("username", username.as_str());
+    let data = db.get_user_account_data(&username).await?;
+    let result = data.get(&data_type).ok_or(ErrorKind::NotFound)?;
+    Ok(Json(result.to_owned()))
+}
+
+#[put("/user/{user_id}/account_data/{type}")]
+pub async fn account_data_update(
+    state: Data<Arc<ServerState>>,
+    path: Path<(MatrixId, String)>,
+    token: AccessToken,
+    value: Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, Error> {
+    let (_, data_type) = path.into_inner();
+    let db = state.db_pool.get_handle().await?;
+    let username = db.try_auth(token.0).await?.ok_or(ErrorKind::UnknownToken)?;
+    Span::current().record("username", username.as_str());
+    db.set_user_account_data_value(&username, data_type, value.0)
+        .await?;
+    Ok(Json(json!({})))
+}

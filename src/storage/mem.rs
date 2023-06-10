@@ -399,6 +399,19 @@ impl Storage for MemStorageHandle {
         Ok(())
     }
 
+    async fn set_user_account_data(
+        &self,
+        username: &str,
+        data: HashMap<String, JsonValue>,
+    ) -> Result<(), Error> {
+        let mut db = self.inner.write().await;
+        if let Some(pos) = db.users.iter().position(|u| u.username == username) {
+            db.users[pos].account_data = data;
+            Ok(())
+        } else {
+            Err(ErrorKind::NotFound.into())
+        }
+    }
     async fn get_user_account_data(
         &self,
         username: &str,

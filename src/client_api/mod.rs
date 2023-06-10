@@ -33,6 +33,8 @@ pub fn configure_endpoints(cfg: &mut web::ServiceConfig) {
             .service(user::filter_events)
             .service(user::filter_event)
             .service(user::status)
+            .service(user::account_data)
+            .service(user::account_data_update)
             .service(room::create_room)
             .service(room::invite)
             .service(room::join_by_id_or_alias)

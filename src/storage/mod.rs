@@ -354,6 +354,21 @@ pub trait Storage: Send + Sync {
         username: &str,
     ) -> Result<HashMap<String, JsonValue>, Error>;
 
+    async fn set_user_account_data(
+        &self,
+        username: &str,
+        data: HashMap<String, JsonValue>,
+    ) -> Result<(), Error>;
+    async fn set_user_account_data_value(
+        &self,
+        username: &str,
+        ty: String,
+        value: JsonValue,
+    ) -> Result<(), Error> {
+        let mut data = self.get_user_account_data(username).await?;
+        data.insert(ty, value);
+        self.set_user_account_data(username, data).await
+    }
     async fn get_batch(&self, id: &str) -> Result<Option<Batch>, Error>;
 
     async fn set_batch(&self, id: &str, batch: Batch) -> Result<(), Error>;

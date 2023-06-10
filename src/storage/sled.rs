@@ -578,6 +578,20 @@ impl Storage for SledStorageHandle {
         Ok(user.account_data)
     }
 
+    async fn set_user_account_data(
+        &self,
+        username: &str,
+        data: HashMap<String, JsonValue>,
+    ) -> Result<(), Error> {
+        let mut user: User = self
+            .users
+            .get_value(username)?
+            .ok_or(ErrorKind::UserNotFound)?;
+        user.account_data = data;
+        self.users.overwrite_value(username, user);
+        Ok(())
+    }
+
     async fn get_batch(&self, id: &str) -> Result<Option<Batch>, Error> {
         self.batches.get_value(id)
     }
