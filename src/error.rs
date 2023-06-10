@@ -4,10 +4,11 @@ use actix_web::{
     error::JsonPayloadError, http::StatusCode, HttpResponse, HttpResponseBuilder, ResponseError,
 };
 use displaydoc::Display;
+use mxid::MxidError;
 use serde_json::{json, Error as JsonError};
 use tracing_error::SpanTrace;
 
-use crate::util::storage::AddEventError;
+use crate::util::{mxid, storage::AddEventError};
 
 // All-seeing all-knowing error type
 #[derive(Debug)]
@@ -77,6 +78,8 @@ pub enum ErrorKind {
     AddEventError(AddEventError),
     /// An unknown error occurred: {0}
     Unknown(String),
+    /// An mxid error occured: {0}
+    Mxid(mxid::MxidError),
 }
 
 impl ResponseError for Error {
@@ -95,7 +98,7 @@ impl ResponseError for Error {
             | Unknown(_)
             | TxnIdExists => StatusCode::BAD_REQUEST,
             LimitExceeded => StatusCode::TOO_MANY_REQUESTS,
-            AddEventError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            AddEventError(_) | Mxid(_) => StatusCode::INTERNAL_SERVER_ERROR,
             #[cfg(feature = "storage-sled")]
             SledError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Unimplemented => StatusCode::NOT_IMPLEMENTED,
@@ -116,7 +119,7 @@ impl ResponseError for Error {
             InvalidParam(_) => "M_INVALID_PARAM",
             UnsupportedRoomVersion => "M_UNSUPPORTED_ROOM_VERSION",
             TxnIdExists | UrlNotUtf8(_) | PasswordError(_) | Unimplemented | AddEventError(_)
-            | Unknown(_) => "M_UNKNOWN",
+            | Unknown(_) | Mxid(_) => "M_UNKNOWN",
             #[cfg(feature = "storage-sled")]
             SledError(_) => "M_UNKNOWN",
         };
@@ -171,6 +174,12 @@ impl From<argon2::Error> for ErrorKind {
 impl From<AddEventError> for ErrorKind {
     fn from(e: AddEventError) -> Self {
         ErrorKind::AddEventError(e)
+    }
+}
+
+impl From<MxidError> for ErrorKind {
+    fn from(e: MxidError) -> Self {
+        ErrorKind::Mxid(e)
     }
 }
 

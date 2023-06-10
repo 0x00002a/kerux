@@ -53,10 +53,7 @@ trait TreeExt {
 impl TreeExt for Tree {
     type Error = Error;
     fn get_value<K: AsRef<[u8]>, V: DeserializeOwned>(&self, key: K) -> Result<Option<V>, Error> {
-        self.get(key)?
-            .map(|bytes| deserialize(&bytes))
-            .transpose()
-            .map_err(Into::into)
+        self.get(key)?.map(|bytes| deserialize(&bytes)).transpose()
     }
 
     fn replace_value<K: AsRef<[u8]>, V: DeserializeOwned + Serialize>(
@@ -480,11 +477,11 @@ impl Storage for SledStorageHandle {
     async fn get_rooms(&self) -> Result<Vec<RoomId>, Error> {
         self.rooms
             .iter()
-            .map_ok(|(key, _value)| {
-                String::from_utf8(Vec::from(key.as_ref()))
-                    .unwrap()
-                    .parse()
-                    .unwrap()
+            .map(|r| {
+                r.map_err(Error::from).and_then(|(key, _)| {
+                    let s = String::from_utf8(Vec::from(key.as_ref())).unwrap();
+                    s.parse().map_err(Into::into)
+                })
             })
             .collect::<Result<Vec<_>, _>>()
             .map_err(Into::into)
@@ -615,7 +612,7 @@ mod tests {
         let db = db_pool.get_handle().await.unwrap();
         let domain = Domain::from_str("local").unwrap();
         let user_id = MatrixId::new_with_random_local(domain.clone()).unwrap();
-        let room_id = RoomId::from_str("!test@local").unwrap();
+        let room_id = RoomId::from_str("!test:local").unwrap();
         let create_event = UnhashedPdu {
             event_content: EventContent::Create(room::Create {
                 creator: user_id.clone(),
