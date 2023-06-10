@@ -16,19 +16,23 @@ mod user;
 pub fn configure_endpoints(cfg: &mut web::ServiceConfig) {
     cfg.service(versions);
     let mount = |scope: Scope| {
-        scope
+        let rate_limited = scope
             .service(auth::get_supported_login_types)
             .service(auth::login)
-            .service(auth::logout)
-            .service(auth::logout_all)
-            .service(auth::register)
             .service(auth::check_username_available)
-            .service(user::get_avatar_url)
+            .service(auth::register)
+            .service(auth::logout)
             .service(user::set_avatar_url)
-            .service(user::get_display_name)
             .service(user::set_display_name)
-            .service(user::get_profile)
             .service(user::search_user_directory)
+            .service(room::invite)
+            .service(room::join_by_id_or_alias)
+            .service(ephemeral::typing);
+        rate_limited
+            .service(auth::logout_all)
+            .service(user::get_avatar_url)
+            .service(user::get_display_name)
+            .service(user::get_profile)
             .service(user::get_3pids)
             .service(user::filter_events)
             .service(user::filter_event)
@@ -36,8 +40,6 @@ pub fn configure_endpoints(cfg: &mut web::ServiceConfig) {
             .service(user::account_data)
             .service(user::account_data_update)
             .service(room::create_room)
-            .service(room::invite)
-            .service(room::join_by_id_or_alias)
             .service(room_events::sync)
             .service(room_events::get_event)
             .service(room_events::get_state_event_no_key)
