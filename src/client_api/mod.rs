@@ -1,11 +1,13 @@
 use actix_web::{
     get,
-    web::{self, Json}, Scope,
+    web::{self, Json},
+    Scope,
 };
 use serde_json::json;
 
 mod auth;
 mod ephemeral;
+mod keys;
 mod pushrules;
 mod room;
 mod room_events;
@@ -45,6 +47,7 @@ pub fn configure_endpoints(cfg: &mut web::ServiceConfig) {
             .service(room_events::messages)
             .service(ephemeral::typing)
             .service(thirdparty_protocols)
+            .service(keys::query)
     };
 
     cfg.service(mount(web::scope("/r0")));

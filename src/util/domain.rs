@@ -10,7 +10,7 @@ lazy_static! {
 
 /// Matrix server domain
 #[repr(transparent)]
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Hash, PartialOrd, Ord)]
 #[serde(try_from = "String")]
 pub struct Domain {
     url: String,

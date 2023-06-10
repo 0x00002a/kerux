@@ -8,7 +8,7 @@ use super::domain::Domain;
 /// Generic type for a matrix idenifier
 ///
 /// See `MatrixId` and `RoomId`
-#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(try_from = "String")]
 pub struct Id<const PREFIX: char> {
     domain: Domain,
