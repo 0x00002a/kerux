@@ -385,6 +385,39 @@ impl Storage for SledStorageHandle {
         let profile = self.users.get_value(username)?.map(|u: User| u.profile);
         Ok(profile)
     }
+    async fn search_users(
+        &self,
+        contains: &str,
+        limit: usize,
+    ) -> Result<(Vec<(String, UserProfile)>, bool), Error> {
+        let contains = contains.to_lowercase();
+        let mut profiles = self
+            .users
+            .iter()
+            .filter_map(|u| u.ok())
+            .filter_map(|(u, p)| {
+                let u: String = String::from_utf8(u.to_vec()).unwrap();
+                let p: UserProfile = deserialize(&p).unwrap();
+                if u.to_lowercase().contains(&contains)
+                    || p.displayname
+                        .as_ref()
+                        .map(|d| d.to_lowercase().contains(&contains))
+                        .unwrap_or(false)
+                {
+                    Some((u, p))
+                } else {
+                    None
+                }
+            })
+            .take(limit + 1)
+            .collect::<Vec<_>>();
+        if profiles.len() == limit + 1 {
+            profiles.pop();
+            Ok((profiles, true))
+        } else {
+            Ok((profiles, false))
+        }
+    }
 
     async fn set_avatar_url(&self, username: &str, avatar_url: &str) -> Result<(), Error> {
         let mut user: User = self
@@ -637,6 +670,20 @@ mod tests {
         util::{domain::Domain, mxid::RoomId, MatrixId},
         validate::auth::AuthStatus,
     };
+
+    #[tokio::test]
+    async fn searching_for_user_searches_both_username_and_displayname() {
+        let path = "sled-test-usersearch";
+        let _ = fs::remove_dir_all(path);
+        let db_pool = super::SledStorage::new(path).unwrap();
+        let db = db_pool.get_handle().await.unwrap();
+        let test_uname = "hello";
+        let user_id = MatrixId::new(test_uname, "local".parse().unwrap()).unwrap();
+        db.create_user(user_id.localpart(), "*****").await.unwrap();
+        let found = db.search_users("el", 10).await.unwrap();
+        let _ = fs::remove_dir_all(path);
+        assert_eq!(found.0.len(), 1);
+    }
     #[tokio::test]
     async fn adding_pdus_does_not_hang() {
         let path = "sled-test-transactions";

@@ -193,6 +193,15 @@ pub trait Storage: Send + Sync {
     /// Returns the given user's avatar URL and display name, if present
     async fn get_profile(&self, username: &str) -> Result<Option<UserProfile>, Error>;
 
+    /// Returns up to `limit` user profiles where the username or displayname contains `contains`
+    ///
+    /// the bool return is whether the results were limited or not
+    async fn search_users(
+        &self,
+        contains: &str,
+        limit: usize,
+    ) -> Result<(Vec<(String, UserProfile)>, bool), Error>;
+
     async fn set_avatar_url(&self, username: &str, avatar_url: &str) -> Result<(), Error>;
 
     async fn set_display_name(&self, username: &str, display_name: &str) -> Result<(), Error>;

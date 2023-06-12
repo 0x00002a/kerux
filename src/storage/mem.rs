@@ -178,6 +178,35 @@ impl Storage for MemStorageHandle {
             .map(|u| u.profile.clone()))
     }
 
+    async fn search_users(
+        &self,
+        contains: &str,
+        limit: usize,
+    ) -> Result<(Vec<(String, UserProfile)>, bool), Error> {
+        let contains = contains.to_lowercase();
+        let db = self.inner.read().await;
+        let mut profiles = db
+            .users
+            .iter()
+            .filter(|u| {
+                u.username.contains(&contains)
+                    || u.profile
+                        .displayname
+                        .as_ref()
+                        .map(|d| d.to_lowercase().contains(&contains))
+                        .unwrap_or(false)
+            })
+            .take(limit + 1)
+            .map(|u| (u.username.to_owned(), u.profile.to_owned()))
+            .collect::<Vec<_>>();
+        if profiles.len() == limit + 1 {
+            profiles.pop();
+            Ok((profiles, true))
+        } else {
+            Ok((profiles, false))
+        }
+    }
+
     async fn set_avatar_url(&self, username: &str, avatar_url: &str) -> Result<(), Error> {
         let mut db = self.inner.write().await;
         let user = db

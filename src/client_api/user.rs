@@ -160,7 +160,6 @@ pub async fn get_profile(
 pub struct UserDirSearchRequest {
     search_term: String,
     #[serde(default)]
-    #[allow(unused)]
     limit: Option<usize>,
 }
 
@@ -179,7 +178,6 @@ struct User {
     display_name: Option<String>,
 }
 
-//TODO: actually implement this
 #[post("/user_directory/search")]
 #[instrument(skip_all, err)]
 pub async fn search_user_directory(
@@ -188,23 +186,20 @@ pub async fn search_user_directory(
 ) -> Result<Json<UserDirSearchResponse>, Error> {
     let req = req.into_inner();
     let db = state.db_pool.get_handle().await?;
-    let searched_user = MatrixId::new(&req.search_term, state.config.domain.clone())
-        .map_err(|e| ErrorKind::Unknown(e.to_string()))?;
-    let user_profile = db.get_profile(searched_user.localpart()).await?;
-    match user_profile {
-        Some(p) => Ok(Json(UserDirSearchResponse {
-            results: vec![User {
-                user_id: searched_user,
+    let (results, limited) = db
+        .search_users(&req.search_term, req.limit.unwrap_or(10))
+        .await?;
+    Ok(Json(UserDirSearchResponse {
+        results: results
+            .into_iter()
+            .map(|(u, p)| User {
                 avatar_url: p.avatar_url,
                 display_name: p.displayname,
-            }],
-            limited: false,
-        })),
-        None => Ok(Json(UserDirSearchResponse {
-            results: Vec::new(),
-            limited: false,
-        })),
-    }
+                user_id: MatrixId::new(&u, state.config.domain.clone()).unwrap(),
+            })
+            .collect(),
+        limited,
+    }))
 }
 
 #[derive(Serialize)]
